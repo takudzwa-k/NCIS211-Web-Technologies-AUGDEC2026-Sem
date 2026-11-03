@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Academic Record · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="academic">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Academic Record</h1>
+          <p>Your official course and grade history.</p>
+        </div>
+        <button class="btn secondary" id="report">Report an error</button>
+      </div>
+
+      <div class="banner" id="banner"></div>
+      <section class="card gpa-card" id="gpa"></section>
+
+      <section class="card">
+        <div class="card-top">
+          <div><h2>Course results</h2><div class="sub">Showing all completed courses</div></div>
+          <button class="btn secondary" id="transcript"></button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Course name</th><th>Credits</th><th>Grade</th><th>Semester</th></tr></thead>
+            <tbody id="courses"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  const ac = DATA.academic;
+  document.getElementById('banner').innerHTML = `
+    ${icon('lock', 26)}
+    <div><strong>Official university record</strong><span>This information comes from official university records and cannot be edited.</span></div>
+    <div class="updated">Last updated: ${ac.lastUpdated}</div>`;
+
+  document.getElementById('gpa').innerHTML = `
+    <div><div class="label">Cumulative GPA</div><div class="big">${ac.gpa}</div><div class="small-note">${ac.class}</div></div>
+    <div><div class="label">Credits completed</div><div class="big">${ac.credits}</div><div class="small-note">${Math.round(ac.credits / ac.totalCredits * 100)}% of programme</div></div>
+    <div><div class="label">Semester GPA</div>
+      <div class="sem-row">${ac.semesters.map(s => `<div><div class="s-label">${s.label}</div><div class="s-val">${s.gpa}</div></div>`).join('')}</div></div>`;
+
+  document.getElementById('courses').innerHTML = ac.courses.map(c => `
+    <tr><td class="strong">${c.code}</td><td class="strong">${c.name}</td><td>${c.credits}</td><td>${c.grade}</td><td>${c.sem}</td></tr>`).join('');
+
+  document.getElementById('transcript').innerHTML = icon('upload', 18) + ' Upload official transcript';
+  document.getElementById('transcript').onclick = () => toast('Transcript upload will be added with the document upload flow.');
+  document.getElementById('report').onclick = () => openModal({
+    title: 'Report an error',
+    body: 'If a grade, credit or GPA looks wrong, an administrator will check it against the registry. You cannot change these figures yourself.',
+    actions: [{ label: 'Cancel', secondary: true }, { label: 'Send report', onClick: () => toast('Report sent to an administrator.') }]
+  });
+</script>
+</body>
+</html>

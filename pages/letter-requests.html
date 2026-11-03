@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Letter Requests · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="letters">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Letter Requests</h1>
+          <p>Request and track formal letters from your lecturers.</p>
+        </div>
+        <button class="btn" id="new-btn"></button>
+      </div>
+
+      <section class="card">
+        <div class="toolbar">
+          <div class="input-icon" id="search-wrap"><input id="q" type="text" placeholder="Search requests..."></div>
+          <select class="select" id="f-status">
+            <option value="">All statuses</option><option value="progress">In progress</option>
+            <option value="completed">Completed</option><option value="declined">Declined</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Lecturer</th><th>Letter type</th><th>Deadline</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="empty" style="display:none"><strong>No requests found</strong>Start a new request to ask a lecturer for a letter.</div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  document.getElementById('new-btn').innerHTML = icon('plus', 18) + ' New request';
+  document.getElementById('new-btn').onclick = () => toast('The New request form is a later screen.');
+  document.getElementById('search-wrap').insertAdjacentHTML('afterbegin', icon('search', 18));
+
+  function render() {
+    const q = document.getElementById('q').value.toLowerCase().trim();
+    const s = document.getElementById('f-status').value;
+    const list = DATA.letters.filter(l =>
+      (!q || l.lecturer.toLowerCase().includes(q) || l.type.toLowerCase().includes(q)) && (!s || l.status === s));
+    document.getElementById('empty').style.display = list.length ? 'none' : 'block';
+    document.getElementById('rows').innerHTML = list.map((l, i) => `
+      <tr>
+        <td class="strong">${l.lecturer}</td>
+        <td>${l.type}</td>
+        <td>${fmtDate(l.deadline)}</td>
+        <td>${pill(l.status, l.label)}</td>
+        <td><button class="icon-btn" data-i="${DATA.letters.indexOf(l)}" aria-label="Request details">${icon('more', 20)}</button></td>
+      </tr>`).join('');
+    document.querySelectorAll('[data-i]').forEach(b => b.onclick = () => {
+      const l = DATA.letters[b.dataset.i];
+      openModal({
+        title: 'Request details',
+        body: `<dl><dt>Lecturer</dt><dd>${l.lecturer}</dd><dt>Letter type</dt><dd>${l.type}</dd>
+               <dt>Purpose</dt><dd>${l.purpose}</dd><dt>Deadline</dt><dd>${fmtDate(l.deadline)}</dd>
+               <dt>Status</dt><dd>${pill(l.status, l.label)}</dd></dl>`
+      });
+    });
+  }
+  ['q', 'f-status'].forEach(id => document.getElementById(id).addEventListener('input', render));
+  render();
+</script>
+</body>
+</html>

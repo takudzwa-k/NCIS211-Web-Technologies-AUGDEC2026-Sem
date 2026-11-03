@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notifications · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="notifications">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Notifications</h1>
+          <p>Updates about your records, requests and profile access.</p>
+        </div>
+        <button class="btn secondary" id="mark">Mark all as read</button>
+      </div>
+
+      <section class="card note-list" id="list"></section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  function render() {
+    const read = notificationsRead();
+    document.getElementById('list').innerHTML = DATA.notifications.map(n => {
+      const unread = n.unread && !read;
+      return `<div class="note-item ${unread ? 'unread' : ''}">
+        <div class="round-icon ${n.tone}">${icon(n.icon, 22)}</div>
+        <div class="body"><strong>${n.title}</strong><div class="desc">${n.desc}</div><div class="time">${n.time}</div></div>
+        ${unread ? '<span class="unread-dot"></span>' : ''}
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('mark').onclick = () => {
+    store('au_read', '1');
+    render();
+    const b = document.getElementById('nav-badge'); if (b) b.remove();
+    const d = document.getElementById('bell-dot'); if (d) d.remove();
+    toast('All notifications marked as read.');
+  };
+  render();
+</script>
+</body>
+</html>

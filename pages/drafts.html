@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Drafts · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="drafts">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Drafts</h1>
+          <p>Manage drafts across the AU Student Achievement &amp; Recommendation Profile.</p>
+        </div>
+      </div>
+
+      <section class="card empty-card">
+        <div>
+          <div class="big-icon" id="big-icon"></div>
+          <p>No drafts need your attention right now.</p>
+          <button class="btn secondary" id="refresh">Refresh</button>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  document.getElementById('big-icon').innerHTML = icon('doc', 28);
+  document.getElementById('refresh').onclick = () => toast('Drafts are up to date.');
+</script>
+</body>
+</html>

@@ -2,13 +2,117 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Achievement Hub</title>
-
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
-  ...page content...
+<body class="auth-body">
+  <div class="auth-wrap">
+    <div class="auth-card">
+
+      <section class="auth-left">
+        <div class="auth-brand">
+          <div class="mark">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg>
+          </div>
+          <span>AU Student Achievement &amp; Recommendation Profile</span>
+        </div>
+
+        <div>
+          <div class="auth-tile">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+          </div>
+          <h1>Your achievements, verified and ready.</h1>
+          <p>Keep your university record in one trusted place and share it when it matters.</p>
+        </div>
+
+        <div class="auth-foot">Africa University · Student Services</div>
+      </section>
+
+      <section class="auth-right">
+        <form class="auth-form" id="login-form" novalidate>
+          <div class="kicker">Welcome back</div>
+          <h2>Sign in to your account</h2>
+          <p class="lead">Use your university credentials to continue.</p>
+
+          <div class="field">
+            <div class="field-top"><label for="email">Email address</label></div>
+            <input id="email" type="email" value="t.moyo@students.africau.edu" autocomplete="username">
+          </div>
+
+          <div class="field">
+            <div class="field-top">
+              <label for="password">Password</label>
+              <a href="#" class="link" id="forgot">Forgot password?</a>
+            </div>
+            <input id="password" type="password" value="prototype12345" autocomplete="current-password">
+          </div>
+
+          <div class="field">
+            <div class="field-top"><label for="role">View prototype as</label></div>
+            <select id="role">
+              <option>Student</option>
+              <option>Alumni</option>
+              <option>Lecturer</option>
+              <option>Admin</option>
+            </select>
+          </div>
+
+          <button class="btn block" type="submit">
+            Sign in
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+          <div class="notice" id="notice"></div>
+
+          <p class="help">Need help? Contact <a href="#">ICT Support</a></p>
+        </form>
+      </section>
+
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('login-form');
+    const notice = document.getElementById('notice');
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const role = document.getElementById('role').value;
+      const email = document.getElementById('email').value.trim();
+      const pass = document.getElementById('password').value;
+
+      if (!email || !pass) {
+        notice.textContent = 'Enter your email address and password to sign in.';
+        notice.style.display = 'block';
+        return;
+      }
+      if (role === 'Student' || role === 'Alumni' || role === 'Lecturer') {
+        try { sessionStorage.setItem('au_role', role); } catch (err) {}
+        window.location.href = role === 'Lecturer' ? 'pages/find-students.html' : 'pages/profile.html';
+      } else {
+        notice.textContent = 'The ' + role + ' view will be built in a later step. Choose Student to continue.';
+        notice.style.display = 'block';
+      }
+    });
+
+    // swap the sample email when the view changes
+    document.getElementById('role').addEventListener('change', function () {
+      const emails = {
+        Student: 't.moyo@students.africau.edu',
+        Alumni: 'r.chikwanha@alumni.africau.edu',
+        Lecturer: 'n.dube@africau.edu',
+        Admin: 'admin@africau.edu'
+      };
+      document.getElementById('email').value = emails[this.value];
+      notice.style.display = 'none';
+    });
+
+    document.getElementById('forgot').addEventListener('click', function (e) {
+      e.preventDefault();
+      notice.textContent = 'Password reset is not part of this prototype.';
+      notice.style.display = 'block';
+    });
+  </script>
 </body>
 </html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Letter Requests · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="lecturerLetters">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Letter Requests</h1>
+          <p>Review and manage requests from students and alumni.</p>
+        </div>
+        <button class="btn secondary" id="add-btn"></button>
+      </div>
+
+      <section class="card">
+        <div class="toolbar">
+          <div class="input-icon" id="search-wrap"><input id="q" type="text" placeholder="Search requests..."></div>
+          <select class="select" id="f-status">
+            <option value="">All statuses</option>
+            <option value="sent">Sent</option><option value="accepted">Accepted</option>
+            <option value="progress">In progress</option><option value="completed">Completed</option>
+            <option value="declined">Declined</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Student</th><th>Letter type</th><th>Deadline</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="empty" style="display:none"><strong>No requests found</strong>Requests from students and alumni will appear here.</div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  const R = DATA.lecturerRequests;
+  const LABEL = { sent: 'Sent', accepted: 'Accepted', progress: 'In progress', completed: 'Completed', declined: 'Declined' };
+  const PILL = { sent: 'progress', accepted: 'progress', progress: 'progress', completed: 'completed', declined: 'declined' };
+
+  document.getElementById('add-btn').innerHTML = icon('plus', 18) + ' Add achievement for student';
+  document.getElementById('add-btn').onclick = () => toast('The Add achievement for student form is a later screen.');
+  document.getElementById('search-wrap').insertAdjacentHTML('afterbegin', icon('search', 18));
+
+  function actions(r, i) {
+    if (r.status === 'sent') return `<div class="row-actions">
+      <button class="btn-outline" data-act="accept" data-i="${i}">Accept</button>
+      <button class="btn-ghost" data-act="decline" data-i="${i}">Decline</button></div>`;
+    if (r.status === 'progress') return `<div class="row-actions">
+      <button class="btn-outline" data-act="complete" data-i="${i}">Mark completed</button></div>`;
+    return `<div class="row-actions"><button class="icon-btn" data-act="more" data-i="${i}" aria-label="Request details">${icon('more', 20)}</button></div>`;
+  }
+
+  function render() {
+    const q = document.getElementById('q').value.toLowerCase().trim();
+    const s = document.getElementById('f-status').value;
+    const rows = R.map((r, i) => ({ r, i })).filter(x =>
+      (!q || x.r.student.toLowerCase().includes(q) || x.r.type.toLowerCase().includes(q)) && (!s || x.r.status === s));
+    document.getElementById('empty').style.display = rows.length ? 'none' : 'block';
+    document.getElementById('rows').innerHTML = rows.map(x => `
+      <tr>
+        <td class="strong">${x.r.student}</td>
+        <td>${x.r.type}</td>
+        <td>${fmtDate(x.r.deadline, true)}</td>
+        <td>${pill(PILL[x.r.status], LABEL[x.r.status])}</td>
+        <td>${actions(x.r, x.i)}</td>
+      </tr>`).join('');
+
+    document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
+      const r = R[b.dataset.i], act = b.dataset.act;
+      if (act === 'accept')   { r.status = 'accepted';  render(); toast('Request accepted. ' + r.student + ' has been notified.'); }
+      if (act === 'complete') { r.status = 'completed'; render(); toast('Marked as completed.'); }
+      if (act === 'decline')  openModal({
+        title: 'Decline this request?',
+        body: r.student + ' will be told that you cannot write this letter.',
+        actions: [{ label: 'Cancel', secondary: true }, { label: 'Decline request', onClick: () => { r.status = 'declined'; render(); toast('Request declined.'); } }]
+      });
+      if (act === 'more') openModal({
+        title: 'Request details',
+        body: `<dl><dt>Student</dt><dd>${r.student}</dd><dt>Letter type</dt><dd>${r.type}</dd>
+               <dt>Purpose</dt><dd>${r.purpose}</dd><dt>Deadline</dt><dd>${fmtDate(r.deadline)}</dd>
+               <dt>Status</dt><dd>${pill(PILL[r.status], LABEL[r.status])}</dd></dl>`
+      });
+    });
+  }
+  ['q', 'f-status'].forEach(id => document.getElementById(id).addEventListener('input', render));
+  render();
+</script>
+</body>
+</html>

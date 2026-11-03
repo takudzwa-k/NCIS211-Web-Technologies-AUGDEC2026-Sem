@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Documents · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="documents">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Documents</h1>
+          <p>Review evidence and transcripts uploaded to your profile.</p>
+        </div>
+        <button class="btn" id="upload"></button>
+      </div>
+
+      <section class="card">
+        <div class="toolbar">
+          <div class="input-icon" id="search-wrap"><input id="q" type="text" placeholder="Search documents..."></div>
+          <select class="select" id="f-type"><option value="">All file types</option><option>PDF</option><option>JPG</option></select>
+          <select class="select" id="f-status">
+            <option value="">All statuses</option><option value="verified">Verified</option>
+            <option value="pending">Pending</option><option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>File name</th><th>Linked achievement</th><th>Type</th><th>Upload date</th><th>Status</th><th></th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="empty" style="display:none"><strong>No documents found</strong>Try a different search or filter.</div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  document.getElementById('upload').innerHTML = icon('upload', 18) + ' Upload document';
+  document.getElementById('upload').onclick = () => toast('Document upload will be added with the Add Achievement screen.');
+  document.getElementById('search-wrap').insertAdjacentHTML('afterbegin', icon('search', 18));
+
+  function render() {
+    const q = document.getElementById('q').value.toLowerCase().trim();
+    const t = document.getElementById('f-type').value, s = document.getElementById('f-status').value;
+    const list = DATA.documents.filter(d =>
+      (!q || d.name.toLowerCase().includes(q) || d.linked.toLowerCase().includes(q)) &&
+      (!t || d.type === t) && (!s || d.status === s));
+    document.getElementById('empty').style.display = list.length ? 'none' : 'block';
+    document.getElementById('rows').innerHTML = list.map((d, i) => `
+      <tr>
+        <td class="strong"><span class="file-cell">${icon('file', 20)} ${d.name}</span></td>
+        <td>${d.linked}</td>
+        <td>${d.type}</td>
+        <td>${fmtDate(d.date)}</td>
+        <td>${pill(d.status)}</td>
+        <td style="white-space:nowrap">
+          <button class="icon-btn" data-view="${d.name}" aria-label="Preview ${d.name}">${icon('eye', 20)}</button>
+          <button class="icon-btn" data-dl="${d.name}" aria-label="Download ${d.name}">${icon('download', 20)}</button>
+        </td>
+      </tr>`).join('');
+    document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => toast('Previewing ' + b.dataset.view + ' (demo only).'));
+    document.querySelectorAll('[data-dl]').forEach(b => b.onclick = () => toast('Downloading ' + b.dataset.dl + ' (demo only).'));
+  }
+  ['q', 'f-type', 'f-status'].forEach(id => document.getElementById(id).addEventListener('input', render));
+  render();
+</script>
+</body>
+</html>

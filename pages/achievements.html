@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Achievements · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="achievements">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Achievements</h1>
+          <p>Build and manage your verified achievement record.</p>
+        </div>
+        <button class="btn" id="add-btn"></button>
+      </div>
+
+      <section class="card">
+        <div class="toolbar">
+          <div class="input-icon" id="search-wrap"><input id="q" type="text" placeholder="Search achievements..."></div>
+          <select class="select" id="f-cat"><option value="">All categories</option></select>
+          <select class="select" id="f-status">
+            <option value="">All statuses</option><option value="verified">Verified</option>
+            <option value="pending">Pending</option><option value="rejected">Rejected</option>
+          </select>
+          <select class="select" id="f-tier">
+            <option value="">All tiers</option><option>Major</option><option>Moderate</option><option>Minor</option>
+          </select>
+          <select class="select" id="f-year"><option value="">All years</option></select>
+          <button class="icon-btn" id="reset" title="Clear filters" style="border:1px solid var(--border);width:46px;height:46px;border-radius:10px"></button>
+        </div>
+        <div class="table-meta"><span id="count"></span><span>Only verified achievements are shared by default</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Title</th><th>Category</th><th>Date</th><th>Tier</th><th>Status</th><th>Evidence</th><th></th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="empty" style="display:none"><strong>No achievements match these filters</strong>Clear the filters or add a new achievement.</div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  const A = DATA.achievements;
+  document.getElementById('add-btn').innerHTML = icon('plus', 18) + ' Add Achievement';
+  document.getElementById('add-btn').onclick = () => toast('The Add Achievement form is the next screen to build.');
+  document.getElementById('search-wrap').insertAdjacentHTML('afterbegin', icon('search', 18));
+  document.getElementById('reset').innerHTML = icon('sliders', 20);
+
+  const fCat = document.getElementById('f-cat'), fYear = document.getElementById('f-year');
+  [...new Set(A.map(x => x.category))].sort().forEach(c => fCat.add(new Option(c, c)));
+  [...new Set(A.map(x => x.date.slice(0, 4)))].sort().reverse().forEach(y => fYear.add(new Option(y, y)));
+
+  function render() {
+    const q = document.getElementById('q').value.toLowerCase().trim();
+    const list = A.filter(x =>
+      (!q || x.title.toLowerCase().includes(q) || x.category.toLowerCase().includes(q)) &&
+      (!fCat.value || x.category === fCat.value) &&
+      (!document.getElementById('f-status').value || x.status === document.getElementById('f-status').value) &&
+      (!document.getElementById('f-tier').value || x.tier === document.getElementById('f-tier').value) &&
+      (!fYear.value || x.date.startsWith(fYear.value)));
+
+    document.getElementById('count').innerHTML = `<b>${list.length}</b> achievement${list.length === 1 ? '' : 's'}`;
+    document.getElementById('empty').style.display = list.length ? 'none' : 'block';
+    document.getElementById('rows').innerHTML = list.map(x => `
+      <tr class="clickable" data-id="${x.id}">
+        <td class="strong">${x.title}${x.status === 'rejected' ? '<button class="sub-link" data-reason="' + x.id + '">View reason</button>' : ''}</td>
+        <td>${x.category}</td>
+        <td>${fmtDate(x.date, true)}</td>
+        <td>${x.tier ? '<span class="tier">' + x.tier + '</span>' : '—'}</td>
+        <td>${pill(x.status)}</td>
+        <td><span class="file-cell">${icon('file', 18)} ${x.file}</span></td>
+        <td>${icon('right', 18)}</td>
+      </tr>`).join('');
+
+    document.querySelectorAll('[data-reason]').forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      const item = A.find(x => x.id == b.dataset.reason);
+      openModal({
+        title: 'Why this was rejected',
+        body: `<p style="margin-bottom:12px"><b style="color:var(--text)">${item.title}</b></p><div class="reason-box">${item.reason}</div>`,
+        actions: [{ label: 'Close', secondary: true }, { label: 'Add evidence', onClick: () => toast('Evidence upload comes with the Add Achievement screen.') }]
+      });
+    });
+    document.querySelectorAll('#rows tr').forEach(tr => tr.onclick = () => {
+      const item = A.find(x => x.id == tr.dataset.id);
+      openModal({
+        title: item.title,
+        body: `<dl>
+          <dt>Category</dt><dd>${item.category}</dd>
+          <dt>Date</dt><dd>${fmtDate(item.date)}</dd>
+          <dt>Tier</dt><dd>${item.tier || '—'}</dd>
+          <dt>Status</dt><dd>${pill(item.status)}</dd>
+          <dt>Evidence</dt><dd>${item.file}</dd></dl>`
+      });
+    });
+  }
+
+  ['q', 'f-cat', 'f-status', 'f-tier', 'f-year'].forEach(id => document.getElementById(id).addEventListener('input', render));
+  document.getElementById('reset').onclick = () => {
+    document.getElementById('q').value = '';
+    ['f-cat', 'f-status', 'f-tier', 'f-year'].forEach(id => document.getElementById(id).value = '');
+    render();
+  };
+  render();
+</script>
+</body>
+</html>

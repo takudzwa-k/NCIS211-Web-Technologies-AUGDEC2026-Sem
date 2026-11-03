@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sharing & Privacy · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="sharing">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Sharing &amp; Privacy</h1>
+          <p>You control which lecturers can view your profile.</p>
+        </div>
+      </div>
+
+      <div class="share-grid">
+        <section class="card card-pad">
+          <h2>Profile visibility</h2>
+          <div class="sub" style="margin-bottom:18px">Choose which sections approved lecturers can see.</div>
+          <label class="check-row"><div><strong>Achievements</strong><span>Verified items are shown by default</span></div><input type="checkbox" data-sec="Achievements" checked></label>
+          <label class="check-row"><div><strong>Academic Record</strong><span>Official grades and GPA</span></div><input type="checkbox" data-sec="Academic Record" checked></label>
+          <label class="check-row"><div><strong>Documents</strong><span>Supporting evidence files</span></div><input type="checkbox" data-sec="Documents"></label>
+        </section>
+        <section class="card private-card" id="private"></section>
+      </div>
+
+      <section class="card">
+        <div class="card-top">
+          <div><h2>Lecturer access</h2><div class="sub">People who currently have permission to view your profile.</div></div>
+          <button class="btn" id="grant"></button>
+        </div>
+        <div id="access"></div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  document.getElementById('private').innerHTML = `${icon('shield', 30)}
+    <h3>Your profile stays private</h3>
+    <p>Only lecturers you approve, or those receiving a letter request from you, can see the selected sections.</p>`;
+  document.getElementById('grant').innerHTML = icon('plus', 18) + ' Grant access';
+  document.getElementById('grant').onclick = () => toast('The Grant access form is a later screen.');
+
+  document.querySelectorAll('[data-sec]').forEach(cb => cb.addEventListener('change', () =>
+    toast(cb.dataset.sec + (cb.checked ? ' is now visible to approved lecturers.' : ' is now hidden from lecturers.'))));
+
+  function renderAccess() {
+    const box = document.getElementById('access');
+    if (!DATA.access.length) {
+      box.innerHTML = '<div class="empty" style="border-top:1px solid var(--border)"><strong>No lecturers have access</strong>Grant access when you want a lecturer to see your profile.</div>';
+      return;
+    }
+    box.innerHTML = DATA.access.map((p, i) => `
+      <div class="access-row">
+        <div class="access-person"><div class="avatar sm">${p.initials}</div><div><strong>${p.name}</strong><span>${p.dept}</span></div></div>
+        <div style="font-size:13px;color:#374151">${p.sections}</div>
+        <div class="expires">${icon('calendar', 18)} Expires ${p.expires}</div>
+        <button class="btn secondary" data-revoke="${i}">Revoke</button>
+      </div>`).join('');
+    document.querySelectorAll('[data-revoke]').forEach(b => b.onclick = () => {
+      const p = DATA.access[b.dataset.revoke];
+      openModal({
+        title: 'Revoke access?',
+        body: `${p.name} will no longer be able to view your profile.`,
+        actions: [{ label: 'Cancel', secondary: true }, { label: 'Revoke access', onClick: () => { DATA.access.splice(b.dataset.revoke, 1); renderAccess(); toast('Access revoked.'); } }]
+      });
+    });
+  }
+  renderAccess();
+</script>
+</body>
+</html>

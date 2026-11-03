@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Find Students · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="find">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Find Students</h1>
+          <p>Search profiles shared with you or linked to a letter request.</p>
+        </div>
+      </div>
+
+      <section class="card search-card">
+        <form class="big-search" id="search-form">
+          <input id="q" type="text" placeholder="Search by name, student ID or programme" autocomplete="off">
+          <button class="btn" type="submit">Search</button>
+        </form>
+        <p class="search-hint">Results are limited to students who have granted you access.</p>
+      </section>
+
+      <div class="result-count" id="count"></div>
+      <div id="results"></div>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  document.querySelector('.big-search').insertAdjacentHTML('afterbegin', icon('search', 20));
+
+  function render() {
+    const q = document.getElementById('q').value.toLowerCase().trim();
+    const list = DATA.sharedStudents.filter(s =>
+      !q || (s.name + ' ' + s.id + ' ' + s.programme).toLowerCase().includes(q));
+
+    document.getElementById('count').textContent = q
+      ? list.length + ' matching student' + (list.length === 1 ? '' : 's')
+      : list.length + ' students have shared their profile with you';
+
+    if (!list.length) {
+      document.getElementById('results').innerHTML =
+        '<div class="card empty"><strong>No students found</strong>Check the spelling, or ask the student to grant you access.</div>';
+      return;
+    }
+    document.getElementById('results').innerHTML = list.map((s, i) => `
+      <div class="card student-card">
+        <div class="avatar">${s.initials}</div>
+        <div class="who">
+          <h3>${s.name}</h3>
+          <div class="prog">${s.programme} · ${s.level}</div>
+          <div class="sid">${s.id}</div>
+        </div>
+        <div class="chips">${s.access.map(a => '<span class="chip">' + a + '</span>').join('')}</div>
+        <button class="btn secondary" data-open="${s.name}">Open profile ${icon('right', 16)}</button>
+      </div>`).join('');
+    document.querySelectorAll('[data-open]').forEach(b => b.onclick = () =>
+      toast('The student profile view for lecturers is the next screen to build.'));
+  }
+
+  document.getElementById('search-form').addEventListener('submit', e => { e.preventDefault(); render(); });
+  document.getElementById('q').addEventListener('input', render);
+  render();
+</script>
+</body>
+</html>
