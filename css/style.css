@@ -1,0 +1,53 @@
+:root {
+  --red: #C8102E;
+  --red-dark: #A30D25;
+  --red-tint: #FDECEE;
+  --bg: #F7F7F8;
+  --card: #FFFFFF;
+  --border: #E5E7EB;
+  --text: #111827;
+  --muted: #6B7280;
+  --green: #15803D;
+  --green-tint: #DCFCE7;
+  --amber: #B45309;
+  --amber-tint: #FEF3C7;
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.btn {
+  background: var(--red);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn:hover { background: var(--red-dark); }
+
+.pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.pill.verified { background: var(--green-tint); color: var(--green); }
+.pill.pending  { background: var(--amber-tint); color: var(--amber); }
+.pill.rejected { background: var(--red-tint);   color: var(--red); }
