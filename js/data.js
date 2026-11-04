@@ -3,7 +3,7 @@
 /* Which view is active (set by the login page or the profile menu) */
 let CURRENT_ROLE = 'Student';
 try { CURRENT_ROLE = sessionStorage.getItem('au_role') || 'Student'; } catch (e) {}
-if (['Student', 'Alumni', 'Lecturer'].indexOf(CURRENT_ROLE) === -1) CURRENT_ROLE = 'Student';
+if (['Student', 'Alumni', 'Lecturer', 'Admin'].indexOf(CURRENT_ROLE) === -1) CURRENT_ROLE = 'Student';
 
 const USERS = {
   Student: {
@@ -34,6 +34,15 @@ const USERS = {
     badge: 'Lecturer', subtitle: 'Faculty of Science',
     entry: '', status: 'Lecturer', phone: '',
     portal: 'Lecturer portal'
+  },
+  Admin: {
+    name: 'Chipo Nyathi', initials: 'CN',
+    email: 'c.nyathi@africau.edu',
+    programme: 'Registry', faculty: '',
+    studentId: '',
+    badge: 'Admin', subtitle: 'Registry Administrator',
+    entry: '', status: 'Administrator', phone: '',
+    portal: 'Admin portal'
   }
 };
 const DATA = {
@@ -121,6 +130,40 @@ const DATA = {
     { name: 'Tatenda Chari',  initials: 'TC', programme: 'BSc Information Systems',  level: 'Year 4',                id: 'AU-IS-220091', access: ['Achievements'] },
     { name: 'Rudo Chikwanha', initials: 'RC', programme: 'BCom Business Management', level: 'Alumna · Class of 2024', id: 'AU-BM-200742', access: ['Achievements', 'Academic Record'] },
     { name: 'Tafadzwa Ncube', initials: 'TN', programme: 'BSc Computer Science',     level: 'Year 2',                id: 'AU-CS-240317', access: ['Achievements'] }
+  ],
+
+  /* ---- Admin view ---- */
+  adminQueue: [
+    { id: 1, student: 'Tendai Moyo',    sid: 'AU-CS-230184',  title: 'Google Data Analytics Certificate', category: 'Certifications', date: '2025-04-08', files: ['certificate.pdf'], status: 'pending' },
+    { id: 2, student: 'Rudo Chikwanha', sid: 'Alumna · 2024', title: 'Women in Tech Mentorship',          category: 'Volunteering',   date: '2025-04-07', files: ['mentorship-letter.pdf', 'mentorship-photo.jpg'], status: 'pending' }
+  ],
+  categories: ['Academic Awards', 'Dean’s List', 'Scholarships & Bursaries', 'Conferences & Seminars', 'Certifications',
+               'Clubs & Societies', 'Sports', 'Debate & Public Speaking', 'Leadership', 'Volunteering', 'Professional Experience', 'Pre-University'],
+
+  users: [
+    { name: 'Tendai Moyo',    email: 't.moyo@students.africau.edu',      role: 'Student',  status: 'verified', last: 'Today' },
+    { name: 'Dr. N. Dube',    email: 'n.dube@africau.edu',               role: 'Lecturer', status: 'verified', last: 'Today' },
+    { name: 'Rudo Chikwanha', email: 'r.chikwanha@alumni.africau.edu',   role: 'Alumni',   status: 'verified', last: '12 Apr' },
+    { name: 'Chipo Nyathi',   email: 'c.nyathi@africau.edu',             role: 'Admin',    status: 'verified', last: 'Today' }
+  ],
+  rolePermissions: {
+    Student:  { summary: 'Manage own record',    items: ['Add and edit own achievements while they are pending', 'Upload supporting evidence', 'View own academic record (read-only)', 'Request letters from lecturers', 'Choose who can see their profile'] },
+    Lecturer: { summary: 'View shared profiles', items: ['View profiles that students have shared', 'Accept or decline letter requests', 'Add and verify academic achievements for students', 'Prepare and export letter summaries'] },
+    Admin:    { summary: 'Verify and manage',    items: ['Verify or reject submitted achievements', 'Manage users and roles', 'Import official academic data', 'View the audit log'] }
+  },
+
+  imports: [
+    { name: 'semester-1-2025-results.csv', date: '2025-04-15', by: 'Chipo Nyathi', rows: 2184, result: 'Completed' },
+    { name: 'graduating-class-2024.csv',   date: '2024-12-20', by: 'T. Mlambo',    rows: 812,  result: 'Completed' },
+    { name: 'semester-2-2024-results.csv', date: '2024-12-06', by: 'Chipo Nyathi', rows: 2093, result: 'Completed' }
+  ],
+
+  audit: [
+    { ts: '2025-04-15T09:42', user: 'Chipo Nyathi', action: 'Verified',      item: 'Dean’s List — Semester 2',          details: 'Tier set to Major' },
+    { ts: '2025-04-15T08:15', user: 'Chipo Nyathi', action: 'Data imported', item: 'semester-1-2025-results.csv',       details: '2,184 academic records' },
+    { ts: '2025-04-14T16:33', user: 'Dr. N. Dube',  action: 'Edited',        item: 'Scholarship support letter',        details: 'Draft updated' },
+    { ts: '2025-04-14T11:06', user: 'Tendai Moyo',  action: 'Created',       item: 'Google Data Analytics Certificate', details: 'Submitted for review' },
+    { ts: '2025-04-13T14:20', user: 'Chipo Nyathi', action: 'Rejected',      item: 'Harare Code for Good Hackathon',    details: 'Evidence insufficient' }
   ],
 
   unreadBadge: 3

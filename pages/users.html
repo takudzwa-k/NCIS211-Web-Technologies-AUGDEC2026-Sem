@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Users & Permissions · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="users">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Users &amp; Permissions</h1>
+          <p>Manage portal access and role assignments.</p>
+        </div>
+        <button class="btn" id="create"></button>
+      </div>
+
+      <div class="two-col-users">
+        <section class="card">
+          <div class="toolbar">
+            <div class="input-icon" id="search-wrap"><input id="q" type="text" placeholder="Search users..."></div>
+            <select class="select" id="f-role">
+              <option value="">All roles</option><option>Student</option><option>Alumni</option><option>Lecturer</option><option>Admin</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last active</th><th></th></tr></thead>
+              <tbody id="rows"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="empty" style="display:none"><strong>No users found</strong>Try a different search or role.</div>
+        </section>
+
+        <section class="card role-card">
+          <div id="role-ic"></div>
+          <h3>Role permissions</h3>
+          <p>Permissions are managed centrally and apply to all users assigned to a role.</p>
+          <div id="roles"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  const U = DATA.users;
+  document.getElementById('create').innerHTML = icon('plus', 18) + ' Create user';
+  document.getElementById('search-wrap').insertAdjacentHTML('afterbegin', icon('search', 18));
+  document.getElementById('role-ic').innerHTML = icon('shield', 30).replace('class="ic"', 'class="ic big"');
+  const ROLES = ['Student', 'Alumni', 'Lecturer', 'Admin'];
+  const roleOptions = sel => ROLES.map(r => `<option ${r === sel ? 'selected' : ''}>${r}</option>`).join('');
+
+  function statusPill(s) {
+    if (s === 'verified') return pill('verified', 'Verified');
+    if (s === 'invited')  return pill('pending', 'Invited');
+    return pill('inactive', 'Inactive');
+  }
+
+  function render() {
+    const q = document.getElementById('q').value.toLowerCase().trim();
+    const r = document.getElementById('f-role').value;
+    const list = U.map((u, i) => ({ u, i })).filter(x =>
+      (!q || (x.u.name + ' ' + x.u.email).toLowerCase().includes(q)) && (!r || x.u.role === r));
+    document.getElementById('empty').style.display = list.length ? 'none' : 'block';
+    document.getElementById('rows').innerHTML = list.map(x => `
+      <tr>
+        <td><div class="user-cell"><strong>${x.u.name}</strong><span>${x.u.email}</span></div></td>
+        <td><span class="tier">${x.u.role}</span></td>
+        <td>${statusPill(x.u.status)}</td>
+        <td>${x.u.last}</td>
+        <td><button class="icon-btn" data-edit="${x.i}" aria-label="Edit ${x.u.name}">${icon('more', 20)}</button></td>
+      </tr>`).join('');
+    document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => edit(+b.dataset.edit));
+  }
+
+  function edit(i) {
+    const u = U[i];
+    openModal({
+      title: 'Edit user',
+      body: `<div class="form-field"><label>Name</label><div style="color:var(--text);font-weight:500">${u.name}</div><div style="font-size:12px;color:var(--muted)">${u.email}</div></div>
+             <div class="form-field" style="margin-bottom:0"><label for="role">Role</label><select id="role">${roleOptions(u.role)}</select></div>`,
+      actions: [
+        { label: 'Cancel', secondary: true },
+        { label: u.status === 'inactive' ? 'Reactivate' : 'Deactivate', secondary: true, danger: u.status !== 'inactive', onClick: () => {
+            u.status = u.status === 'inactive' ? 'verified' : 'inactive'; render(); toast(u.name + (u.status === 'inactive' ? ' deactivated.' : ' reactivated.')); } },
+        { label: 'Save changes', onClick: () => { u.role = document.getElementById('role').value; render(); toast('Role updated for ' + u.name + '.'); } }
+      ]
+    });
+  }
+
+  document.getElementById('create').onclick = () => openModal({
+    title: 'Create user',
+    body: `<div class="form-field"><label for="n">Full name</label><input id="n" type="text"></div>
+           <div class="form-field"><label for="e">Email address</label><input id="e" type="email"></div>
+           <div class="form-field" style="margin-bottom:0"><label for="r">Role</label><select id="r">${roleOptions('Student')}</select></div>`,
+    actions: [
+      { label: 'Cancel', secondary: true },
+      { label: 'Create user', onClick: () => {
+          const name = document.getElementById('n').value.trim(), email = document.getElementById('e').value.trim();
+          if (!name || !/^\S+@\S+\.\S+$/.test(email)) { toast('Enter a name and a valid email address.'); return false; }
+          U.push({ name, email, role: document.getElementById('r').value, status: 'invited', last: 'Never' });
+          render(); toast('Invitation sent to ' + email + '.'); } }
+    ]
+  });
+
+  document.getElementById('roles').innerHTML = ['Student', 'Lecturer', 'Admin'].map(r => `
+    <button class="role-row" data-role="${r}"><strong>${r}</strong><span>${DATA.rolePermissions[r].summary}</span>${icon('right', 18)}</button>`).join('');
+  document.querySelectorAll('[data-role]').forEach(b => b.onclick = () => {
+    const rp = DATA.rolePermissions[b.dataset.role];
+    openModal({ title: b.dataset.role + ' permissions',
+      body: '<ul style="padding-left:18px;line-height:1.9">' + rp.items.map(t => '<li>' + t + '</li>').join('') + '</ul>' });
+  });
+
+  ['q', 'f-role'].forEach(id => document.getElementById(id).addEventListener('input', render));
+  render();
+</script>
+</body>
+</html>

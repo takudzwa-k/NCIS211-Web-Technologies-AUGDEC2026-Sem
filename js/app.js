@@ -26,6 +26,11 @@ const ICONS = {
   sliders: '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
   clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   circleCheck: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  clipboard: '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  history: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+  activity: '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
+  fileDown: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/>',
   menu: '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>'
 };
 
@@ -61,23 +66,25 @@ function toast(msg) {
   setTimeout(() => t.remove(), 2800);
 }
 
-function openModal({ title, body, actions }) {
+function openModal({ title, body, actions, wide }) {
   const o = document.createElement('div');
   o.className = 'overlay';
-  o.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><h3>${title}</h3><div class="m-body">${body}</div><div class="m-actions"></div></div>`;
+  o.innerHTML = `<div class="modal${wide ? ' wide' : ''}" role="dialog" aria-modal="true"><h3>${title}</h3><div class="m-body">${body}</div><div class="m-actions"></div></div>`;
   const bar = o.querySelector('.m-actions');
   const close = () => { o.remove(); document.removeEventListener('keydown', onKey); };
   const onKey = e => { if (e.key === 'Escape') close(); };
   (actions || [{ label: 'Close', secondary: true }]).forEach(a => {
     const b = document.createElement('button');
-    b.className = 'btn small' + (a.secondary ? ' secondary' : '');
+    b.className = 'btn small' + (a.secondary ? ' secondary' : '') + (a.danger ? ' danger' : '');
     b.textContent = a.label;
-    b.onclick = () => { close(); if (a.onClick) a.onClick(); };
+    // onClick runs while the form is still on screen; return false to keep the popup open
+    b.onclick = () => { const keepOpen = a.onClick ? a.onClick(o) === false : false; if (!keepOpen) close(); };
     bar.appendChild(b);
   });
   o.addEventListener('click', e => { if (e.target === o) close(); });
   document.addEventListener('keydown', onKey);
   document.body.appendChild(o);
+  return o;
 }
 
 /* ---------- shell: sidebar + top bar ---------- */
@@ -104,8 +111,21 @@ const NAV_LECTURER = [
   ]}
 ];
 
-const NAV = CURRENT_ROLE === 'Lecturer' ? NAV_LECTURER : NAV_STUDENT;
-const ROLE_HOME = { Student: 'profile.html', Alumni: 'profile.html', Lecturer: 'find-students.html' };
+const NAV_ADMIN = [
+  { group: 'Administration', items: [
+    { key: 'queue',   label: 'Verification Queue',    icon: 'clipboard', href: 'verification-queue.html' },
+    { key: 'users',   label: 'Users & Permissions',   icon: 'users',     href: 'users.html' },
+    { key: 'import',  label: 'Academic Data Import',  icon: 'upload',    href: 'data-import.html' }
+  ]},
+  { group: 'Monitoring', items: [
+    { key: 'audit',   label: 'Audit Log',             icon: 'history',   href: 'audit-log.html' },
+    { key: 'reports', label: 'Reports',               icon: 'activity',  href: 'reports.html' },
+    { key: 'notifications', label: 'Notifications',   icon: 'bell',      href: 'notifications.html', badge: true }
+  ]}
+];
+
+const NAV = CURRENT_ROLE === 'Lecturer' ? NAV_LECTURER : CURRENT_ROLE === 'Admin' ? NAV_ADMIN : NAV_STUDENT;
+const ROLE_HOME = { Student: 'profile.html', Alumni: 'profile.html', Lecturer: 'find-students.html', Admin: 'verification-queue.html' };
 
 function buildShell() {
   const page = document.body.dataset.page;
@@ -171,8 +191,8 @@ function buildShell() {
     menu.classList.remove('open');
     const r = b.dataset.role;
     if (r === CURRENT_ROLE) return;
-    if (r === 'Student' || r === 'Alumni' || r === 'Lecturer') { store('au_role', r); window.location.href = ROLE_HOME[r]; }
-    else toast(`The ${r} view will be built in a later step.`);
+    store('au_role', r);
+    window.location.href = ROLE_HOME[r];
   });
   document.getElementById('signout').onclick = () => { window.location.href = '../index.html'; };
 

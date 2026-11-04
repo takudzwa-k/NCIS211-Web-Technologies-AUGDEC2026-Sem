@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verification Queue · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="queue">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Verification Queue</h1>
+          <p>Review evidence and verify student-submitted achievements.</p>
+        </div>
+      </div>
+
+      <section class="mini-stats" id="stats"></section>
+
+      <section class="card">
+        <div class="toolbar">
+          <div class="input-icon" id="search-wrap"><input id="q" type="text" placeholder="Search student or achievement..."></div>
+          <select class="select" id="f-cat" style="min-width:220px"><option value="">All categories</option></select>
+          <select class="select" id="f-status" style="min-width:220px">
+            <option value="pending">Pending review</option>
+            <option value="evidence">More evidence requested</option>
+          </select>
+          <div class="menu-wrap">
+            <button class="btn secondary drop" id="bulk-btn">Bulk actions <span id="bulk-ic"></span></button>
+            <div class="menu" id="bulk-menu">
+              <button data-bulk="verify">Verify selected</button>
+              <button data-bulk="evidence">Request more evidence</button>
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th class="th-cb"><input type="checkbox" class="cb" id="all" aria-label="Select all"></th>
+              <th>Student</th><th>Achievement</th><th>Category</th><th>Date submitted</th><th>Evidence</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="empty" style="display:none"><strong>Nothing in this list</strong>New submissions will appear here for review.</div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  const Q = DATA.adminQueue;
+  let verified = 0, closed = 0;   // counters used for the summary cards
+
+  document.getElementById('search-wrap').insertAdjacentHTML('afterbegin', icon('search', 18));
+  document.getElementById('bulk-ic').innerHTML = icon('down', 16);
+  DATA.categories.forEach(c => document.getElementById('f-cat').add(new Option(c, c)));
+
+  function stats() {
+    const card = (ic, num, lbl) => `<div class="card mini-stat">${icon(ic, 36)}<div><div class="num">${num}</div><div class="lbl">${lbl}</div></div></div>`;
+    document.getElementById('stats').innerHTML =
+      card('clock', 12 - closed, 'Awaiting review') +
+      card('circleCheck', 28 + verified, 'Verified this week') +
+      card('calendar', '1.8 days', 'Average review time');
+  }
+
+  function visible() {
+    const q = document.getElementById('q').value.toLowerCase().trim();
+    const c = document.getElementById('f-cat').value, s = document.getElementById('f-status').value;
+    return Q.filter(x => x.status === s && (!c || x.category === c) &&
+      (!q || (x.student + ' ' + x.title).toLowerCase().includes(q)));
+  }
+
+  function render() {
+    const list = visible();
+    document.getElementById('empty').style.display = list.length ? 'none' : 'block';
+    document.getElementById('all').checked = false;
+    document.getElementById('rows').innerHTML = list.map(x => `
+      <tr class="clickable" data-id="${x.id}">
+        <td class="td-cb"><input type="checkbox" class="cb row-cb" data-id="${x.id}" aria-label="Select ${x.title}"></td>
+        <td><div class="user-cell"><strong>${x.student}</strong><span>${x.sid}</span></div></td>
+        <td class="strong">${x.title}</td>
+        <td>${x.category}</td>
+        <td>${fmtDate(x.date)}</td>
+        <td><span class="file-cell">${icon('file', 18)} ${x.files.length} file${x.files.length > 1 ? 's' : ''}</span></td>
+        <td>${x.status === 'pending' ? pill('pending', 'Pending') : pill('progress', 'More evidence')}</td>
+        <td>${icon('right', 18)}</td>
+      </tr>`).join('');
+
+    document.querySelectorAll('.row-cb').forEach(cb => cb.onclick = e => e.stopPropagation());
+    document.querySelectorAll('#rows tr').forEach(tr => tr.onclick = () => review(Q.find(x => x.id == tr.dataset.id)));
+    stats();
+  }
+
+  function review(item) {
+    openModal({
+      wide: true,
+      title: 'Review achievement',
+      body: `
+        <dl>
+          <dt>Student</dt><dd>${item.student} · ${item.sid}</dd>
+          <dt>Achievement</dt><dd>${item.title}</dd>
+          <dt>Category</dt><dd>${item.category}</dd>
+          <dt>Submitted</dt><dd>${fmtDate(item.date)}</dd>
+          <dt>Evidence</dt><dd>${item.files.map(f => '<div class="file-line">' + icon('file', 16) + f + '</div>').join('')}</dd>
+        </dl>
+        <div class="form-field" style="margin-top:20px">
+          <label for="tier">Tier (applies when verifying)</label>
+          <select id="tier"><option>Major</option><option selected>Moderate</option><option>Minor</option></select>
+        </div>
+        <div class="form-field" style="margin-bottom:0">
+          <label for="note">Note to student (required to reject or ask for more evidence)</label>
+          <textarea id="note" placeholder="For example: please add an official certificate."></textarea>
+        </div>`,
+      actions: [
+        { label: 'Cancel', secondary: true },
+        { label: 'Request more evidence', secondary: true, onClick: () => {
+            if (!document.getElementById('note').value.trim()) { toast('Add a note so the student knows what is missing.'); return false; }
+            item.status = 'evidence'; render(); toast('Evidence requested from ' + item.student + '.'); } },
+        { label: 'Reject', secondary: true, danger: true, onClick: () => {
+            if (!document.getElementById('note').value.trim()) { toast('Add a reason before rejecting.'); return false; }
+            Q.splice(Q.indexOf(item), 1); closed++; render(); toast('Achievement rejected. ' + item.student + ' has been notified.'); } },
+        { label: 'Verify', onClick: () => {
+            const tier = document.getElementById('tier').value;
+            Q.splice(Q.indexOf(item), 1); closed++; verified++; render();
+            toast('Verified as ' + tier + '. ' + item.student + ' has been notified.'); } }
+      ]
+    });
+  }
+
+  // bulk actions
+  const bulkMenu = document.getElementById('bulk-menu');
+  document.getElementById('bulk-btn').onclick = e => { e.stopPropagation(); bulkMenu.classList.toggle('open'); };
+  document.addEventListener('click', () => bulkMenu.classList.remove('open'));
+  document.querySelectorAll('[data-bulk]').forEach(b => b.onclick = () => {
+    bulkMenu.classList.remove('open');
+    const ids = [...document.querySelectorAll('.row-cb:checked')].map(c => +c.dataset.id);
+    if (!ids.length) { toast('Select at least one achievement first.'); return; }
+    ids.forEach(id => {
+      const item = Q.find(x => x.id === id);
+      if (b.dataset.bulk === 'verify') { Q.splice(Q.indexOf(item), 1); closed++; verified++; }
+      else item.status = 'evidence';
+    });
+    render();
+    toast(b.dataset.bulk === 'verify' ? ids.length + ' achievement(s) verified.' : 'Evidence requested for ' + ids.length + ' achievement(s).');
+  });
+  document.getElementById('all').onchange = e => document.querySelectorAll('.row-cb').forEach(c => c.checked = e.target.checked);
+
+  ['q', 'f-cat', 'f-status'].forEach(id => document.getElementById(id).addEventListener('input', render));
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Academic Data Import · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="import">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Academic Data Import</h1>
+          <p>Upload and reconcile official course and GPA records.</p>
+        </div>
+        <button class="btn" id="top-import"></button>
+      </div>
+
+      <section class="card import-card">
+        <div class="tile" id="tile"></div>
+        <div class="txt">
+          <h2>Import academic records</h2>
+          <p>Upload a CSV exported from the student records system. You can map and preview every column before anything is changed.</p>
+          <button class="link" id="sample" style="margin-top:10px;padding:0">Download a sample CSV</button>
+        </div>
+        <button class="btn" id="select-csv">Select CSV file</button>
+      </section>
+
+      <section class="card">
+        <div class="card-top" style="padding-bottom:18px">
+          <div><h2>Import history</h2><div class="sub">Previously completed academic data imports.</div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>File name</th><th>Date</th><th>Uploaded by</th><th>Rows</th><th>Result</th><th></th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  const H = DATA.imports;
+  document.getElementById('top-import').innerHTML = icon('upload', 18) + ' Import .CSV';
+  document.getElementById('tile').innerHTML = icon('upload', 32);
+
+  function render() {
+    document.getElementById('rows').innerHTML = H.map(h => `
+      <tr>
+        <td class="strong"><span class="file-cell">${icon('doc', 20)} ${h.name}</span></td>
+        <td>${fmtDate(h.date, true)}</td>
+        <td>${h.by}</td>
+        <td>${h.rows.toLocaleString('en-US')}</td>
+        <td>${pill('completed', h.result)}</td>
+        <td><button class="icon-btn" data-dl="${h.name}" aria-label="Download ${h.name}">${icon('download', 20)}</button></td>
+      </tr>`).join('');
+    document.querySelectorAll('[data-dl]').forEach(b => b.onclick = () => toast('Downloading ' + b.dataset.dl + ' (demo only).'));
+  }
+
+  // --- CSV handling ---
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.csv,text/csv'; input.style.display = 'none';
+  document.body.appendChild(input);
+  document.getElementById('select-csv').onclick = document.getElementById('top-import').onclick = () => input.click();
+
+  function parseCSV(text) {
+    return text.split(/\r?\n/).filter(l => l.trim()).map(line => {
+      const cells = []; let cur = '', q = false;
+      for (const ch of line) {
+        if (ch === '"') q = !q;
+        else if (ch === ',' && !q) { cells.push(cur.trim()); cur = ''; }
+        else cur += ch;
+      }
+      cells.push(cur.trim());
+      return cells;
+    });
+  }
+
+  const FIELDS = [
+    { label: 'Student ID',  hints: ['student', 'id'] },
+    { label: 'Course code', hints: ['course', 'code'] },
+    { label: 'Credits',     hints: ['credit'] },
+    { label: 'Grade',       hints: ['grade'] },
+    { label: 'Semester',    hints: ['sem', 'term'] }
+  ];
+
+  input.onchange = () => {
+    const file = input.files[0];
+    input.value = '';
+    if (!file) return;
+    if (!/\.csv$/i.test(file.name)) { toast('Please choose a .csv file.'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const rows = parseCSV(String(reader.result));
+      if (rows.length < 2) { toast('That file has no data rows.'); return; }
+      const head = rows[0], data = rows.slice(1);
+      const guess = f => Math.max(0, head.findIndex(h => f.hints.some(k => h.toLowerCase().includes(k))));
+
+      const selects = FIELDS.map((f, n) => `
+        <div class="form-field" style="margin-bottom:10px;display:grid;grid-template-columns:140px 1fr;gap:12px;align-items:center">
+          <label style="margin:0">${f.label}</label>
+          <select data-map="${n}">${head.map((h, i) => `<option value="${i}" ${i === guess(f) ? 'selected' : ''}>${esc(h)}</option>`).join('')}</select>
+        </div>`).join('');
+      const preview = `<table class="mini-table"><thead><tr>${head.map(h => '<th>' + esc(h) + '</th>').join('')}</tr></thead><tbody>
+        ${data.slice(0, 5).map(r => '<tr>' + head.map((_, i) => '<td>' + esc(r[i] || '') + '</td>').join('') + '</tr>').join('')}</tbody></table>`;
+
+      openModal({
+        wide: true,
+        title: 'Map and preview',
+        body: `<p style="margin-bottom:14px"><b style="color:var(--text)">${esc(file.name)}</b> · ${data.length.toLocaleString('en-US')} rows found</p>
+               ${selects}
+               <div style="margin-top:14px;font-weight:600;color:var(--text)">Preview (first 5 rows)</div>${preview}
+               <p style="margin-top:12px;font-size:12px">Nothing is changed until you confirm.</p>`,
+        actions: [
+          { label: 'Cancel', secondary: true },
+          { label: 'Confirm import', onClick: () => {
+              const picked = [...document.querySelectorAll('[data-map]')].map(s => s.value);
+              if (new Set(picked).size !== picked.length) { toast('Each field needs its own column.'); return false; }
+              H.unshift({ name: file.name, date: new Date().toISOString().slice(0, 10), by: DATA.user.name, rows: data.length, result: 'Completed' });
+              render(); toast(data.length.toLocaleString('en-US') + ' records imported.'); } }
+        ]
+      });
+    };
+    reader.readAsText(file);
+  };
+
+  document.getElementById('sample').onclick = () => {
+    const csv = 'student_id,course_code,credits,grade,semester\nAU-CS-230184,CT301,15,A,Semester 1 2025\nAU-CS-230184,CT304,15,A-,Semester 1 2025\nAU-IS-220091,IS302,15,B+,Semester 1 2025\n';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = 'sample-results.csv'; a.click();
+  };
+  render();
+</script>
+</body>
+</html>

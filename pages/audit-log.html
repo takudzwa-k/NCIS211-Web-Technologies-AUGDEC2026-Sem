@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Audit Log · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="audit">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Audit Log</h1>
+          <p>A read-only history of important actions across the portal.</p>
+        </div>
+        <button class="btn secondary" id="export"></button>
+      </div>
+
+      <section class="card">
+        <div class="toolbar">
+          <div class="input-icon" id="search-wrap"><input id="q" type="text" placeholder="Search actions or items..."></div>
+          <input type="date" class="date-input" id="f-date" aria-label="Filter by date">
+          <select class="select" id="f-user"><option value="">All users</option></select>
+          <select class="select" id="f-action"><option value="">All actions</option></select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Item</th><th>Details</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="empty" style="display:none"><strong>No log entries match</strong>Clear a filter to see more history.</div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  const L = DATA.audit;
+  document.getElementById('export').innerHTML = icon('fileDown', 18) + ' Export log';
+  document.getElementById('search-wrap').insertAdjacentHTML('afterbegin', icon('search', 18));
+  [...new Set(L.map(x => x.user))].forEach(u => document.getElementById('f-user').add(new Option(u, u)));
+  [...new Set(L.map(x => x.action))].forEach(a => document.getElementById('f-action').add(new Option(a, a)));
+
+  const stamp = ts => fmtDate(ts.slice(0, 10), true) + ' · ' + ts.slice(11);
+
+  function filtered() {
+    const q = document.getElementById('q').value.toLowerCase().trim();
+    const d = document.getElementById('f-date').value, u = document.getElementById('f-user').value, a = document.getElementById('f-action').value;
+    return L.filter(x =>
+      (!q || (x.action + ' ' + x.item + ' ' + x.details).toLowerCase().includes(q)) &&
+      (!d || x.ts.slice(0, 10) === d) && (!u || x.user === u) && (!a || x.action === a));
+  }
+
+  function render() {
+    const list = filtered();
+    document.getElementById('empty').style.display = list.length ? 'none' : 'block';
+    document.getElementById('rows').innerHTML = list.map(x => `
+      <tr>
+        <td>${stamp(x.ts)}</td><td>${x.user}</td>
+        <td><span class="tag">${x.action}</span></td>
+        <td class="strong">${x.item}</td><td>${x.details}</td>
+      </tr>`).join('');
+  }
+
+  document.getElementById('export').onclick = () => {
+    const list = filtered();
+    if (!list.length) { toast('There are no entries to export.'); return; }
+    const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+    const csv = ['Timestamp,User,Action,Item,Details'].concat(
+      list.map(x => [stamp(x.ts), x.user, x.action, x.item, x.details].map(q).join(','))).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = 'audit-log.csv'; a.click();
+    toast('Audit log exported.');
+  };
+
+  ['q', 'f-date', 'f-user', 'f-action'].forEach(id => document.getElementById(id).addEventListener('input', render));
+  render();
+</script>
+</body>
+</html>

@@ -87,13 +87,9 @@
         notice.style.display = 'block';
         return;
       }
-      if (role === 'Student' || role === 'Alumni' || role === 'Lecturer') {
-        try { sessionStorage.setItem('au_role', role); } catch (err) {}
-        window.location.href = role === 'Lecturer' ? 'pages/find-students.html' : 'pages/profile.html';
-      } else {
-        notice.textContent = 'The ' + role + ' view will be built in a later step. Choose Student to continue.';
-        notice.style.display = 'block';
-      }
+      try { sessionStorage.setItem('au_role', role); } catch (err) {}
+      const home = { Student: 'profile.html', Alumni: 'profile.html', Lecturer: 'find-students.html', Admin: 'verification-queue.html' };
+      window.location.href = 'pages/' + home[role];
     });
 
     // swap the sample email when the view changes
@@ -102,7 +98,7 @@
         Student: 't.moyo@students.africau.edu',
         Alumni: 'r.chikwanha@alumni.africau.edu',
         Lecturer: 'n.dube@africau.edu',
-        Admin: 'admin@africau.edu'
+        Admin: 'c.nyathi@africau.edu'
       };
       document.getElementById('email').value = emails[this.value];
       notice.style.display = 'none';
