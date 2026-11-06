@@ -29,6 +29,7 @@
           <select class="select" id="f-status" style="min-width:220px">
             <option value="pending">Pending review</option>
             <option value="evidence">More evidence requested</option>
+            <option value="flagged">Flagged, waiting for student</option>
           </select>
           <div class="menu-wrap">
             <button class="btn secondary drop" id="bulk-btn">Bulk actions <span id="bulk-ic"></span></button>
@@ -88,7 +89,7 @@
         <td>${esc(x.category)}</td>
         <td>${fmtDate(x.date)}</td>
         <td><span class="file-cell">${icon('file', 18)} ${x.files.length} file${x.files.length > 1 ? 's' : ''}</span></td>
-        <td>${x.status === 'pending' ? pill('pending', 'Pending') : pill('progress', 'More evidence')}</td>
+        <td>${x.status === 'pending' ? (x.explanation ? pill('progress', 'Explained') : pill('pending', 'Pending')) : x.status === 'flagged' ? pill('rejected', 'Flagged') : pill('progress', 'More evidence')}</td>
         <td>${icon('right', 18)}</td>
       </tr>`).join('');
     document.querySelectorAll('.row-cb').forEach(cb => cb.onclick = e => e.stopPropagation());
@@ -99,8 +100,10 @@
   // the student's own record follows what staff decide
   const ach = item => item.achId ? DATA.achievements.find(a => a.id === item.achId) : null;
   const who = item => me + ' · ' + (item.verifier || 'Academic Records Office');
+  const closeMail = item => DATA.emails.forEach(e => { if (e.queueId === item.id && e.status === 'open') e.status = 'handled'; });
 
   function doVerify(item, tier) {
+    closeMail(item);
     const a = ach(item);
     if (a) { a.status = 'verified'; a.tier = tier; a.verifiedBy = who(item); a.history.push({ when: todayISO(), text: 'Verified by ' + who(item) + ' (' + tier + ')' }); }
     Q.splice(Q.indexOf(item), 1); ST.closed++; ST.verified++;
@@ -108,6 +111,7 @@
     logAudit('Verified', item.title, 'Tier set to ' + tier);
   }
   function doReject(item, note) {
+    closeMail(item);
     const a = ach(item);
     if (a) { a.status = 'rejected'; a.reason = note; a.history.push({ when: todayISO(), text: 'Rejected: ' + note }); }
     Q.splice(Q.indexOf(item), 1); ST.closed++;
@@ -122,6 +126,15 @@
     logAudit('Evidence requested', item.title, note);
   }
 
+  function doFlag(item, note) {
+    const a = ach();
+    function ach() { return item.achId ? DATA.achievements.find(x => x.id === item.achId) : null; }
+    if (a) { a.flag = { note: note, by: me, date: todayISO(), reply: null }; a.history.push({ when: todayISO(), text: 'Staff asked for an explanation' }); }
+    item.status = 'flagged'; item.flagNote = note; item.explanation = '';
+    notify(['Student', 'Alumni'], 'bell', 'red', 'Please explain an achievement', item.title + ': ' + note);
+    logAudit('Flagged', item.title, note);
+  }
+
   function review(item) {
     openModal({
       wide: true, title: 'Review achievement',
@@ -134,6 +147,8 @@
           <dt>Submitted</dt><dd>${fmtDate(item.date)}</dd>
           <dt>Evidence</dt><dd>${item.files.map(f => '<div class="file-line">' + icon('file', 16) + esc(f) + '</div>').join('')}</dd>
         </dl>
+        ${item.status === 'flagged' ? '<div class="flag-box"><b>Flagged.</b> Waiting for the student to explain: ' + esc(item.flagNote) + '</div>' : ''}
+        ${item.explanation ? '<div class="flag-box"><b>Student’s explanation</b><div style="margin-top:6px">' + esc(item.explanation) + '</div></div>' : ''}
         <div class="fld" style="margin-top:20px"><label for="tier">Tier (applies when verifying)</label>
           <select id="tier"><option>Major</option><option selected>Moderate</option><option>Minor</option></select>
           <div class="hint">For reporting only. Lecturers still judge the real achievement.</div></div>
@@ -145,6 +160,10 @@
             const n = document.getElementById('note').value.trim();
             if (!n) { toast('Add a note so the student knows what is missing.'); return false; }
             doEvidence(item, n); saveState(); render(); toast('Evidence requested from ' + item.student + '.'); } },
+        { label: 'Flag for explanation', secondary: true, onClick: () => {
+            const n = document.getElementById('note').value.trim();
+            if (!n) { toast('Say what looks wrong so the student can explain.'); return false; }
+            doFlag(item, n); saveState(); render(); toast('Flagged. ' + item.student + ' has been asked to explain.'); } },
         { label: 'Reject', secondary: true, danger: true, onClick: () => {
             const n = document.getElementById('note').value.trim();
             if (!n) { toast('Add a reason before rejecting.'); return false; }

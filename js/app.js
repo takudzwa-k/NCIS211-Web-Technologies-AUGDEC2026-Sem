@@ -37,6 +37,7 @@ const ICONS = {
   copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
   trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+  flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
   menu: '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>'
 };
 
@@ -63,11 +64,32 @@ function notify(to, ic, tone, title, desc) {
   saveState();
 }
 /* record an action in the audit log */
-function logAudit(action, item, details) {
+function logAudit(action, item, details, asUser) {
   const d = new Date();
-  DATA.audit.unshift({ ts: todayISO() + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()), user: DATA.user.name, action: action, item: item, details: details });
+  DATA.audit.unshift({ ts: todayISO() + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()), user: asUser || DATA.user.name, action: action, item: item, details: details });
   saveState();
 }
+
+/* ---------- approval emails for staff who verify by link ---------- */
+const VERIFIER_PEOPLE = {
+  'Lecturer': 'Dr. N. Dube',
+  'Department head': 'Prof. A. Mutasa (Head of Department)',
+  'Sports Director': 'Mr. K. Banda (Sports Director)',
+  'Chaplaincy': 'Rev. P. Zimba (Chaplain)',
+  'Attachment supervisor': 'Mrs. R. Phiri (Industrial supervisor)'
+};
+function randToken(n) { const c = 'abcdefghijklmnopqrstuvwxyz0123456789'; let t = ''; for (let i = 0; i < n; i++) t += c[Math.floor(Math.random() * c.length)]; return t; }
+function sendApprovalEmail(a, q) {
+  const to = VERIFIER_PEOPLE[a.verifier];
+  if (!to) return null;                                            // Records Office works from the queue
+  DATA.emails.forEach(e => { if (e.achId === a.id && e.status === 'open') e.status = 'replaced'; });
+  const e = { id: 'E' + Date.now(), token: randToken(24), kind: 'approval', to: to, subject: 'Please confirm an achievement for ' + q.student,
+    student: q.student, sid: q.sid, title: a.title, category: a.category, date: a.date, description: a.description, files: a.files.slice(),
+    queueId: q.id, achId: a.id, sentISO: todayISO(), expiresISO: addDays(todayISO(), 7), status: 'open' };
+  DATA.emails.unshift(e); saveState();
+  return e;
+}
+function mailLink(e) { return location.href.replace(/[^/]*(\?.*)?$/, '') + 'email-approval.html?t=' + e.token; }
 function notifForRole(n) { return !n.to || n.to.indexOf(CURRENT_ROLE) > -1; }
 function notifUnread(n) { return n.isNew ? n.unread : (n.unread && !notificationsRead()); }
 function notifBadge() {
@@ -307,6 +329,7 @@ const NAV = CURRENT_ROLE === 'Lecturer' ? NAV_LECTURER : CURRENT_ROLE === 'Admin
 const ROLE_HOME = { Student: 'profile.html', Alumni: 'profile.html', Lecturer: 'find-students.html', Admin: 'verification-queue.html' };
 
 function buildShell() {
+  if (!document.getElementById('sidebar')) return;   // standalone pages have no portal shell
   const page = document.body.dataset.page;
   // if this page belongs to a different role's portal, go to this role's home page
   const allKeys = NAV.reduce((acc, g) => acc.concat(g.items.map(i => i.key)), []);
@@ -357,6 +380,7 @@ function buildShell() {
           ${['Student', 'Alumni', 'Lecturer', 'Admin'].map(r => `
             <button data-role="${r}" class="${r === CURRENT_ROLE ? 'current' : ''}">${r}${r === CURRENT_ROLE ? icon('check', 18) : ''}</button>`).join('')}
           <hr>
+          <button id="open-mailbox">Demo mailbox</button>
           <button id="reset-demo">Reset demo data</button>
           <button class="signout" id="signout">Sign out</button>
         </div>
@@ -374,6 +398,7 @@ function buildShell() {
     store('au_role', r);
     window.location.href = ROLE_HOME[r];
   });
+  document.getElementById('open-mailbox').onclick = () => { window.location.href = 'mailbox.html'; };
   document.getElementById('reset-demo').onclick = () => {
     try { sessionStorage.removeItem('au_state'); sessionStorage.removeItem('au_read'); indexedDB.deleteDatabase('au_files'); } catch (e) {}
     window.location.reload();

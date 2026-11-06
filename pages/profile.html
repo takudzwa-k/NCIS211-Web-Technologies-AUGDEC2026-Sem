@@ -19,6 +19,7 @@
           <p>Your verified university record and recent activity.</p>
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <button class="btn secondary" id="export-btn"></button>
           <button class="btn secondary" id="cv-btn"></button>
           <a class="btn" id="add-btn" href="add-achievement.html"></a>
         </div>
@@ -59,9 +60,12 @@
 <script src="../js/app.js"></script>
 <script>
   const u = DATA.user, a = DATA.academic;
-  const contact = () => DATA.contact[CURRENT_ROLE];
+  // lecturers and admins have no student contact details; they are redirected away, but do not crash first
+  const contact = () => DATA.contact[CURRENT_ROLE] || { phone: '', backup: '' };
+  const skills = () => DATA.skills[CURRENT_ROLE] || (DATA.skills[CURRENT_ROLE] = []);
   document.getElementById('add-btn').innerHTML = icon('plus', 18) + ' Add Achievement';
   document.getElementById('cv-btn').innerHTML = icon('fileDown', 18) + ' Generate CV';
+  document.getElementById('export-btn').innerHTML = icon('shield', 18) + ' Export verified record';
   document.getElementById('add-skill').innerHTML = icon('plus', 16) + ' Add skill';
 
   function renderAll() {
@@ -104,7 +108,7 @@
         <div><strong>${x.title}</strong><div class="desc">${x.desc}</div><div class="time">${x.time}</div></div>
       </div>`).join('');
 
-    const sk = DATA.skills[CURRENT_ROLE];
+    const sk = skills();
     document.getElementById('skills').innerHTML = sk.length
       ? sk.map((x, i) => `<span class="skill-chip">${esc(x.name)} <small>${x.type}</small><button data-rm="${i}" aria-label="Remove ${esc(x.name)}">${icon('x', 12)}</button></span>`).join('')
       : '<span style="color:var(--muted)">No skills added yet.</span>';
@@ -140,7 +144,7 @@
     actions: [{ label: 'Cancel', secondary: true }, { label: 'Add skill', onClick: () => {
       const n = document.getElementById('sn').value.trim();
       if (!n) { toast('Enter a skill name.'); return false; }
-      DATA.skills[CURRENT_ROLE].push({ name: n, type: document.getElementById('st').value }); saveState(); renderAll();
+      skills().push({ name: n, type: document.getElementById('st').value }); saveState(); renderAll();
     } }]
   });
 
@@ -149,7 +153,7 @@
     const ver = DATA.achievements.filter(x => x.status === 'verified');
     const byCat = {};
     ver.forEach(x => (byCat[x.category] = byCat[x.category] || []).push(x));
-    const sk = DATA.skills[CURRENT_ROLE];
+    const sk = skills();
     // No <html>/<head>/<body> tags here on purpose: a closing body tag inside a script
     // gets hit by Live Server's auto-reload snippet and breaks the whole page.
     const html = `<meta charset="utf-8"><title>CV · ${u.name}</title>
@@ -168,6 +172,54 @@
     w.document.write(html); w.document.close();
     setTimeout(() => w.print(), 400);
   };
+
+
+  /* ---- Export verified record: printable, with a code anyone can check online ---- */
+  document.getElementById('export-btn').onclick = () => openModal({
+    wide: true, title: 'Export verified record',
+    body: `<p style="margin-bottom:18px">This creates a printable record with a verification code. Anyone can check the code online, so the record cannot be quietly changed. Use it for institutions that need proof, including ones abroad.</p>
+      <div class="fld"><label for="ex-rcpt">Who is it for? <span class="opt-note">(optional)</span></label><input id="ex-rcpt" type="text" placeholder="For example: University of Cape Town admissions"></div>
+      <div class="fld"><span class="lbl">Include</span><div class="chip-select">
+        <label class="opt"><input type="checkbox" id="ex-acad" checked><span>Academic record</span></label>
+        <label class="opt"><input type="checkbox" id="ex-ach" checked><span>Verified achievements</span></label></div></div>
+      <div class="fld" style="margin-bottom:0"><label for="ex-days">Valid for</label>
+        <select id="ex-days"><option value="30">30 days</option><option value="90" selected>90 days</option><option value="365">1 year</option></select>
+        <div class="hint">You can withdraw it at any time under Sharing &amp; Privacy.</div></div>`,
+    actions: [{ label: 'Cancel', secondary: true }, { label: 'Create record', onClick: () => {
+      const acad = document.getElementById('ex-acad').checked, achOn = document.getElementById('ex-ach').checked;
+      if (!acad && !achOn) { toast('Choose at least one thing to include.'); return false; }
+      const days = +document.getElementById('ex-days').value, rcpt = document.getElementById('ex-rcpt').value.trim();
+      const ver = DATA.achievements.filter(x => x.status === 'verified').sort((x, y) => y.date.localeCompare(x.date));
+      const rec = { code: 'AU-VR-' + randToken(8).toUpperCase(), issuedISO: todayISO(), expiresISO: addDays(todayISO(), days), recipient: rcpt,
+                    includeAcademic: acad, includeAch: achOn, revoked: false, student: u.name, sid: u.studentId, programme: u.programme, gpa: a.gpa, verifiedCount: ver.length };
+      DATA.exports.unshift(rec);
+      logAudit('Record exported', u.name + ' verified record', rec.code + (rcpt ? ' for ' + rcpt : ''));
+      saveState();
+      const url = new URL('verify.html?code=' + rec.code, location.href).href;
+      const e = esc;
+      // no html/head/body tags on purpose (a closing body tag inside a script breaks Live Server's reload snippet)
+      const doc = `<meta charset="utf-8"><title>Verified record · ${e(u.name)}</title>
+        <style>body{font-family:Arial,Helvetica,sans-serif;color:#111;max-width:780px;margin:40px auto;padding:0 24px;line-height:1.5}
+        h1{margin:0 0 4px;font-size:26px}h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#C8102E;border-bottom:2px solid #C8102E;padding-bottom:4px;margin-top:26px}
+        .muted{color:#555;font-size:13px}table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;color:#555;font-size:11px;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid #ccc}
+        td{padding:7px 8px;border-bottom:1px solid #eee}.box{border:2px solid #C8102E;border-radius:8px;padding:14px 18px;margin-top:28px}.code{font-size:22px;font-weight:700;letter-spacing:.06em;color:#C8102E}</style>
+        <div class="muted">Africa University · Academic Records</div><h1>Verified student record</h1>
+        <div class="muted">${e(u.name)} · ${e(u.programme)} · ${e(u.faculty)} · Student ID ${e(u.studentId)}${rcpt ? '<br>Prepared for: ' + e(rcpt) : ''}</div>
+        ${acad ? `<h2>Academic record</h2><div><b>Cumulative GPA ${e(a.gpa)}</b> (${e(a.class)}) · ${a.credits} of ${a.totalCredits} programme credits completed</div>
+          <div class="muted" style="margin:4px 0 10px">Official results from the Academic Records Office, last updated ${e(a.lastUpdated)}.</div>
+          <table><tr><th>Code</th><th>Course</th><th>Credits</th><th>Grade</th><th>Semester</th></tr>${a.courses.map(c => `<tr><td>${c.code}</td><td>${e(c.name)}</td><td>${c.credits}</td><td>${c.grade}</td><td>${c.sem}</td></tr>`).join('')}</table>` : ''}
+        ${achOn ? `<h2>Verified achievements</h2><table><tr><th>Achievement</th><th>Category</th><th>Date</th><th>Tier</th><th>Confirmed by</th></tr>
+          ${ver.map(x => `<tr><td>${e(x.title)}</td><td>${e(x.category)}</td><td>${fmtDate(x.date)}</td><td>${x.tier || ''}</td><td>${e(x.verifiedBy)}</td></tr>`).join('')}</table>` : ''}
+        <div class="box"><div class="muted">Verification code</div><div class="code">${rec.code}</div>
+          <div class="muted" style="margin-top:6px">Issued ${fmtDate(rec.issuedISO)} · valid until ${fmtDate(rec.expiresISO)}</div>
+          <div style="margin-top:8px;font-size:13px">Check this record online: <b>${e(url)}</b></div></div>
+        <p class="muted" style="margin-top:18px">Only achievements confirmed by university staff are listed. If the details online differ from this page, this copy has been changed.</p>`;
+      const w = window.open('', '_blank');
+      if (!w) { toast('Record created, but your browser blocked the pop-up. Allow pop-ups and try again.'); return; }
+      w.document.write(doc); w.document.close(); setTimeout(() => w.print(), 400);
+      toast('Record created. Code ' + rec.code + '. Find it under Sharing & Privacy.');
+    } }]
+  });
 
   renderAll();
 </script>

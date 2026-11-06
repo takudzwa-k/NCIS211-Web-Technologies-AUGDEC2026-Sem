@@ -215,6 +215,19 @@ DATA.loginHistory = [
 ];
 DATA.queueStats = { verified: 0, closed: 0 };
 
+
+/* ---------- email approval links and verified-record exports ---------- */
+DATA.exports = [];
+DATA.emails = (function () {
+  const iso = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  return [{
+    id: 'E1', token: 'demo-chaplain-1', kind: 'approval', to: 'Rev. P. Zimba (Chaplain)', subject: 'Please confirm an achievement for Rudo Chikwanha',
+    student: 'Rudo Chikwanha', sid: 'Alumna · 2024', title: 'Women in Tech Mentorship', category: 'Volunteering', date: '2025-04-07',
+    description: 'Mentored first-year women in technology for two semesters.', files: ['mentorship-letter.pdf', 'mentorship-photo.jpg'],
+    queueId: 2, achId: null, sentISO: iso(0), expiresISO: iso(7), status: 'open'
+  }];
+})();
+
 /* ---------- fill in fields the newer screens need ---------- */
 (function normalise() {
   const verifiedBy = { 1: 'Academic Records Office', 2: 'Dr. N. Dube', 4: 'Department head', 6: 'Chaplaincy', 7: 'Dr. N. Dube', 8: 'Academic Records Office', 9: 'Academic Records Office' };
@@ -235,7 +248,7 @@ DATA.queueStats = { verified: 0, closed: 0 };
 
 /* ---------- keep changes for the browser session so the roles connect ---------- */
 const PERSIST = ['achievements', 'documents', 'letters', 'lecturerRequests', 'access', 'accessLog', 'notifications', 'adminQueue',
-                 'users', 'imports', 'audit', 'drafts', 'skills', 'contact', 'visibility', 'shareLink', 'security', 'queueStats', 'sharedStudents'];
+                 'users', 'imports', 'audit', 'drafts', 'skills', 'contact', 'visibility', 'shareLink', 'security', 'queueStats', 'sharedStudents', 'emails', 'exports'];
 function saveState() {
   try { const o = {}; PERSIST.forEach(k => o[k] = DATA[k]); sessionStorage.setItem('au_state', JSON.stringify(o)); } catch (e) {}
 }

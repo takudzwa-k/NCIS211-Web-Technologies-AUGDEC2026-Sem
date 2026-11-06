@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demo mailbox · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="auth-body">
+  <div class="plain-wrap">
+    <div class="plain-brand"><div class="mark" id="mark"></div><span>AU Student Achievement &amp; Recommendation Profile</span></div>
+    <div class="plain-card" style="padding:26px 30px">
+      <a class="back-link" href="#" id="back"></a>
+      <h1>Demo mailbox</h1>
+      <p class="lead" style="margin:0">Staff who verify achievements by email, such as a lecturer, the Sports Director or the Chaplain, do not need a portal account. In the real system these messages arrive in their inbox. Here they are collected so you can open the links.</p>
+    </div>
+    <div id="mails"></div>
+  </div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  document.getElementById('mark').innerHTML = icon('cap', 22);
+  document.getElementById('back').innerHTML = icon('back', 16) + ' Back to the portal';
+  document.getElementById('back').onclick = e => { e.preventDefault(); history.length > 1 ? history.back() : (window.location.href = ROLE_HOME[CURRENT_ROLE]); };
+
+  const STATUS = { open: ['progress', 'Waiting'], used: ['completed', 'Answered'], handled: ['completed', 'Handled by Records'], replaced: ['draft', 'Replaced'] };
+  function render() {
+    const box = document.getElementById('mails');
+    if (!DATA.emails.length) { box.innerHTML = '<div class="plain-card empty"><strong>No emails yet</strong>Emails appear when a student sends an achievement to a lecturer or other staff member for verification.</div>'; return; }
+    box.innerHTML = DATA.emails.map(e => {
+      const expired = e.status === 'open' && e.expiresISO < todayISO();
+      const st = expired ? ['declined', 'Expired'] : STATUS[e.status] || ['draft', e.status];
+      return `<div class="mail-item">
+        <div class="round-icon grey">${icon('mail', 22)}</div>
+        <div class="body"><strong>${esc(e.subject)}</strong>
+          <div class="to">To: ${esc(e.to)} · Sent ${fmtDate(e.sentISO)} · Link expires ${fmtDate(e.expiresISO)}</div>
+          <p>${esc(e.student)} says they achieved “${esc(e.title)}” and named you to confirm it. Use the secure link to answer in one step. No login needed.</p>
+          <div class="btn-row" style="margin-top:12px">${e.status === 'open' && !expired ? `<a class="btn small" href="email-approval.html?t=${e.token}">Open the link</a>` : ''}
+            ${e.result ? '<span class="tier">' + esc(e.result) + '</span>' : ''}</div></div>
+        ${pill(st[0], st[1])}
+      </div>`;
+    }).join('');
+  }
+  render();
+</script>
+</body>
+</html>

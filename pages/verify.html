@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verify a record · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="auth-body">
+  <div class="plain-wrap">
+    <div class="plain-brand"><div class="mark" id="mark"></div><span>AU Student Achievement &amp; Recommendation Profile</span></div>
+    <section class="plain-card">
+      <h1>Verify a student record</h1>
+      <p class="lead">Enter the verification code printed on a record issued by the university. You do not need an account.</p>
+      <form id="form" style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="fld" style="flex:1;min-width:220px;margin:0"><input id="code" type="text" placeholder="For example: AU-VR-7K3M9QXD" autocomplete="off" aria-label="Verification code"></div>
+        <button class="btn" type="submit">Verify</button>
+      </form>
+    </section>
+    <div id="result"></div>
+  </div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  document.getElementById('mark').innerHTML = icon('cap', 22);
+  const input = document.getElementById('code'), out = document.getElementById('result');
+  function check(code) {
+    code = code.trim().toUpperCase();
+    if (!code) { out.innerHTML = ''; return; }
+    const r = DATA.exports.find(x => x.code === code);
+    let html;
+    if (!r) html = `<section class="plain-card"><div class="result-bad">${icon('x', 22)} <span>No record found for this code</span></div><p class="lead" style="margin:0">Check the code for typing mistakes. If the code is correct, the record may not be genuine. Contact the Academic Records Office.</p></section>`;
+    else if (r.revoked) html = `<section class="plain-card"><div class="result-bad">${icon('x', 22)} <span>This record has been withdrawn by the student</span></div><p class="lead" style="margin:0">It should no longer be relied on. Ask the student for a new record.</p></section>`;
+    else if (r.expiresISO < todayISO()) html = `<section class="plain-card"><div class="result-bad">${icon('x', 22)} <span>This record has expired</span></div><p class="lead" style="margin:0">It was valid until ${fmtDate(r.expiresISO)}. Ask the student for a new record.</p></section>`;
+    else html = `<section class="plain-card"><div class="result-ok">${icon('circleCheck', 22)} <span>This record is genuine and current</span></div>
+      <dl><dt>Student</dt><dd>${esc(r.student)}</dd><dt>Programme</dt><dd>${esc(r.programme)}</dd>
+        <dt>Issued</dt><dd>${fmtDate(r.issuedISO)}${r.recipient ? ' for ' + esc(r.recipient) : ''}</dd><dt>Valid until</dt><dd>${fmtDate(r.expiresISO)}</dd>
+        ${r.includeAcademic ? '<dt>Cumulative GPA</dt><dd>' + esc(r.gpa) + ' (official university record)</dd>' : ''}
+        ${r.includeAch ? '<dt>Verified achievements</dt><dd>' + r.verifiedCount + ', each confirmed by university staff</dd>' : ''}</dl>
+      <p class="lead" style="margin:18px 0 0;font-size:13px">These details should match the printed record. If anything differs, the printed copy has been changed.</p></section>`;
+    out.innerHTML = html;
+  }
+  document.getElementById('form').addEventListener('submit', e => { e.preventDefault(); check(input.value); });
+  const preset = new URLSearchParams(location.search).get('code');
+  if (preset) { input.value = preset; check(preset); }
+</script>
+</body>
+</html>

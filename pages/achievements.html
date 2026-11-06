@@ -77,7 +77,7 @@
         <td>${esc(catText(x))}${x.preUni ? ' <span class="tier">Pre-university</span>' : ''}</td>
         <td>${x.date ? fmtDate(x.date, true) : '—'}</td>
         <td>${x.tier ? '<span class="tier">' + x.tier + '</span>' : '—'}</td>
-        <td>${pill(x.status)}</td>
+        <td>${x.flag && !x.flag.reply ? pill('rejected', 'Needs explanation') : pill(x.status)}</td>
         <td><span class="file-cell">${icon('file', 18)} ${esc(x.files[0] || 'No file')}</span></td>
         <td>${icon('right', 18)}</td>
       </tr>`).join('');
@@ -118,6 +118,20 @@
     } else {
       acts.push({ label: x.status === 'rejected' ? 'Edit and resubmit' : 'Edit', onClick: () => { window.location.href = 'add-achievement.html?edit=' + x.id; } });
     }
+    const flagged = x.flag && !x.flag.reply;
+    if (flagged) {
+      acts.push({ label: 'Send explanation', onClick: () => {
+        const text = document.getElementById('flag-reply').value.trim();
+        if (text.length < 10) { toast('Please write a short explanation (at least 10 characters).'); return false; }
+        x.flag.reply = text; x.flag.replyDate = todayISO();
+        x.history.push({ when: todayISO(), text: 'You sent an explanation to staff' });
+        const q = DATA.adminQueue.find(i => i.achId === x.id);
+        if (q) { q.status = 'pending'; q.explanation = text; }
+        notify(['Admin'], 'bell', 'grey', 'Student explained a flagged item', DATA.user.name + ' replied about ' + x.title + '.');
+        logAudit('Explained', x.title, 'Student replied to a staff question');
+        saveState(); render(); toast('Explanation sent to staff.');
+      } });
+    }
     openModal({
       wide: true, title: esc(x.title), actions: acts,
       body: `<dl>
@@ -131,6 +145,10 @@
         <dt>Description</dt><dd>${esc(x.description)}</dd>
         <dt>Evidence</dt><dd>${x.files.length ? x.files.map(f => '<div class="file-line">' + icon('file', 16) + esc(f) + '</div>').join('') : 'No file attached'}</dd>
       </dl>
+      ${flagged ? `<div class="flag-box"><b>Staff asked you to explain</b><div style="margin-top:6px">${esc(x.flag.note)}</div>
+        <div class="fld" style="margin:14px 0 0"><label for="flag-reply">Your explanation</label><textarea id="flag-reply" placeholder="Tell staff what happened and point to any evidence."></textarea>
+        <div class="hint">Only you and the verifying staff can see this. Nothing is decided until you have replied.</div></div></div>` : ''}
+      ${x.flag && x.flag.reply ? `<div class="flag-box"><b>Your explanation</b><div style="margin-top:6px">${esc(x.flag.reply)}</div></div>` : ''}
       <div style="margin-top:18px;font-weight:600;color:var(--text)">History</div>
       <ul class="history">${x.history.map(h => '<li>' + esc(h.text) + '<span class="when">' + fmtDate(h.when) + '</span></li>').join('')}</ul>`
     });

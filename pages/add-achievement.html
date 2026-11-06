@@ -262,6 +262,8 @@
     let q = DATA.adminQueue.find(x => x.achId === a.id);
     const entry = { achId: a.id, student: user.name, sid: user.studentId, title: a.title, category: a.category, date: todayISO(), files: a.files.length ? a.files : ['(no file)'], status: 'pending', verifier: a.verifier };
     if (q) Object.assign(q, entry); else DATA.adminQueue.push(Object.assign({ id: nextId(DATA.adminQueue) }, entry));
+    const qi = DATA.adminQueue.find(x => x.achId === a.id);
+    const mail = sendApprovalEmail(a, qi);   // staff without accounts get a secure link by email
 
     // evidence shows up under Documents
     const puts = [];
@@ -275,7 +277,7 @@
     notify(['Admin'], 'clock', 'amber', 'New achievement to review', user.name + ': ' + a.title + ' (sent to ' + a.verifier + ')');
     notify([CURRENT_ROLE], 'check', 'green', 'Submitted for review', a.title + ' was sent to ' + a.verifier + '. You will be told when it is verified.');
     logAudit(wasRejected ? 'Resubmitted' : 'Created', a.title, 'Submitted for review');
-    Promise.all(puts).then(() => { saveState(); flash('Submitted. You will be notified when it is verified.'); window.location.href = 'achievements.html'; });
+    Promise.all(puts).then(() => { saveState(); flash(mail ? 'Submitted. A secure link was emailed to ' + mail.to + '. You will be notified when it is verified.' : 'Submitted. You will be notified when it is verified.'); window.location.href = 'achievements.html'; });
   }
 
   function saveLecturer() {

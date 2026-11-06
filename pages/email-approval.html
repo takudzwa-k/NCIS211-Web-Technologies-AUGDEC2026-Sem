@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Confirm an achievement · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="auth-body">
+  <div class="plain-wrap">
+    <div class="plain-brand"><div class="mark" id="mark"></div><span>AU Student Achievement &amp; Recommendation Profile</span></div>
+    <div id="root"></div>
+  </div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  document.getElementById('mark').innerHTML = icon('cap', 22);
+  const token = new URLSearchParams(location.search).get('t');
+  const mail = DATA.emails.find(e => e.token === token);
+  const root = document.getElementById('root');
+
+  function card(html) { root.innerHTML = '<section class="plain-card">' + html + '</section>'; }
+  function problem(title, text) {
+    card(`<div class="result-bad">${icon('x', 22)} <span>${title}</span></div><p class="lead" style="margin:0">${text}</p>`);
+  }
+
+  if (!mail) {
+    problem('This link is not valid', 'It may have been copied incorrectly. Ask the student to send a new request, or contact the Academic Records Office.');
+  } else if (mail.status !== 'open') {
+    const why = { used: 'This link has already been used. Thank you, your answer was recorded.', handled: 'The Academic Records Office has already handled this request.', replaced: 'The student sent a newer request, so this link no longer works. Please use the newest email.' };
+    problem('This link can no longer be used', why[mail.status] || 'It has already been handled.');
+  } else if (mail.expiresISO < todayISO()) {
+    problem('This link has expired', 'Links work for 7 days. Ask the student to send a new request.');
+  } else {
+    const filesHtml = mail.files.map(n => {
+      const d = DATA.documents.find(x => x.name === n && x.linked === mail.title);
+      return `<div class="file-line" style="display:flex;align-items:center;gap:8px;margin-bottom:6px">${icon('file', 16)} ${esc(n)}
+        ${d && d.id ? '<button class="link" data-view="' + esc(n) + '" style="font-size:13px">View</button>' : ''}</div>`;
+    }).join('');
+    card(`
+      <h1>Please confirm an achievement</h1>
+      <p class="lead">Hello ${esc(mail.to.replace(/ \(.*\)/, ''))}. ${esc(mail.student)} asked the university to record the achievement below, and named you as the person who can confirm it. You do not need an account. This link works once and expires on ${fmtDate(mail.expiresISO)}.</p>
+      <dl>
+        <dt>Student</dt><dd>${esc(mail.student)}</dd>
+        <dt>Achievement</dt><dd>${esc(mail.title)}</dd>
+        <dt>Category</dt><dd>${esc(mail.category)}</dd>
+        <dt>Date</dt><dd>${fmtDate(mail.date)}</dd>
+        <dt>Description</dt><dd>${esc(mail.description)}</dd>
+        <dt>Evidence</dt><dd>${filesHtml || 'No file attached'}</dd>
+      </dl>
+      <div class="fld" style="margin-top:26px"><label for="tier">If you confirm it, how significant was it?</label>
+        <select id="tier"><option>Major</option><option selected>Moderate</option><option>Minor</option></select></div>
+      <div class="fld"><label for="note">Note <span class="opt-note">(required to reject or ask for more evidence)</span></label>
+        <textarea id="note" placeholder="Anything the student or the Records Office should know."></textarea></div>
+      <div class="btn-row">
+        <button class="btn" id="approve">Confirm achievement</button>
+        <button class="btn secondary" id="evidence">Ask for more evidence</button>
+        <button class="btn secondary danger" id="reject">I cannot confirm this</button>
+      </div>`);
+
+    document.querySelectorAll('[data-view]').forEach(b => b.onclick = () =>
+      previewDoc(DATA.documents.find(x => x.name === b.dataset.view && x.linked === mail.title)));
+
+    const done = (what) => {
+      mail.status = 'used'; mail.result = what; saveState();
+      card(`<div class="result-ok">${icon('circleCheck', 22)} <span>Thank you. Your answer has been recorded.</span></div>
+        <p class="lead" style="margin:0">${esc(mail.student)} and the Academic Records Office have been told. The record shows that <b>${esc(mail.to)}</b> answered by email link on ${fmtDate(todayISO())}. You can close this page.</p>`);
+    };
+    const queueItem = () => DATA.adminQueue.find(x => x.id === mail.queueId);
+    const ach = () => mail.achId ? DATA.achievements.find(a => a.id === mail.achId) : null;
+    const note = () => document.getElementById('note').value.trim();
+    const who = mail.to + ' via email link';
+
+    document.getElementById('approve').onclick = () => {
+      const tier = document.getElementById('tier').value, a = ach(), q = queueItem();
+      if (a) { a.status = 'verified'; a.tier = tier; a.verifiedBy = who; a.history.push({ when: todayISO(), text: 'Verified by ' + who + ' (' + tier + ')' }); }
+      if (q) { DATA.adminQueue.splice(DATA.adminQueue.indexOf(q), 1); DATA.queueStats.closed++; DATA.queueStats.verified++; }
+      notify(['Student', 'Alumni'], 'check', 'green', 'Achievement verified', mail.title + ' was confirmed by ' + mail.to + '.');
+      logAudit('Verified', mail.title, 'Tier set to ' + tier + ', by email link', mail.to);
+      done('Approved');
+    };
+    document.getElementById('reject').onclick = () => {
+      if (!note()) { toast('Add a short reason so the student understands.'); return; }
+      const a = ach(), q = queueItem();
+      if (a) { a.status = 'rejected'; a.reason = note(); a.history.push({ when: todayISO(), text: 'Not confirmed by ' + who + ': ' + note() }); }
+      if (q) { DATA.adminQueue.splice(DATA.adminQueue.indexOf(q), 1); DATA.queueStats.closed++; }
+      notify(['Student', 'Alumni'], 'x', 'red', 'Achievement not confirmed', mail.title + ': ' + note());
+      logAudit('Rejected', mail.title, note() + ' (by email link)', mail.to);
+      done('Rejected');
+    };
+    document.getElementById('evidence').onclick = () => {
+      if (!note()) { toast('Say what is missing so the student can add it.'); return; }
+      const a = ach(), q = queueItem();
+      if (a) a.history.push({ when: todayISO(), text: 'More evidence requested by ' + who + ': ' + note() });
+      if (q) q.status = 'evidence';
+      notify(['Student', 'Alumni'], 'x', 'red', 'More evidence required', mail.title + ': ' + note());
+      logAudit('Evidence requested', mail.title, note() + ' (by email link)', mail.to);
+      done('More evidence requested');
+    };
+  }
+</script>
+</body>
+</html>

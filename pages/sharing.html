@@ -52,6 +52,11 @@
         </section>
       </div>
 
+      <section class="card stack-gap">
+        <div class="card-top"><div><h2>Verified records you have issued</h2><div class="sub">Each record has a code that anyone can check online. Withdraw a record to make its code stop working.</div></div></div>
+        <div id="exports"></div>
+      </section>
+
       <section class="card card-pad stack-gap">
         <h2>Account security</h2>
         <div class="sub">Sign-ins from a new place need an extra check, and you are alerted when it happens.</div>
@@ -188,7 +193,26 @@
   document.getElementById('logins').innerHTML = here.map(r => `<tr><td class="strong">${esc(r.device)}</td><td>${esc(r.place)}</td><td>${esc(r.when)}</td>
     <td>${r.result === 'Signed in' ? pill('verified', 'Signed in') : pill('rejected', esc(r.result))}</td></tr>`).join('');
 
-  renderAccess(); renderLink(); renderHistory();
+  function renderExports() {
+    const box = document.getElementById('exports'), E = DATA.exports;
+    if (!E.length) { box.innerHTML = '<div class="empty" style="border-top:1px solid var(--border)"><strong>No records issued yet</strong>Use Export verified record on your profile when an institution needs proof.</div>'; return; }
+    box.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Code</th><th>For</th><th>Issued</th><th>Valid until</th><th>Status</th><th></th></tr></thead><tbody>' +
+      E.map((r, i) => {
+        const expired = r.expiresISO < todayISO();
+        return `<tr><td class="strong">${r.code}</td><td>${esc(r.recipient || 'Not stated')}</td><td>${fmtDate(r.issuedISO)}</td><td>${fmtDate(r.expiresISO)}</td>
+          <td>${r.revoked ? pill('rejected', 'Withdrawn') : expired ? pill('draft', 'Expired') : pill('verified', 'Valid')}</td>
+          <td style="white-space:nowrap"><a class="btn-ghost" href="verify.html?code=${r.code}" target="_blank" rel="noopener">Check online</a>
+            ${!r.revoked && !expired ? `<button class="btn-ghost" data-wd="${i}" style="margin-left:6px">Withdraw</button>` : ''}</td></tr>`;
+      }).join('') + '</tbody></table></div>';
+    document.querySelectorAll('[data-wd]').forEach(b => b.onclick = () => {
+      const r = E[b.dataset.wd];
+      openModal({ title: 'Withdraw this record?', body: 'The code ' + r.code + ' will stop working. Anyone who checks it will be told the record was withdrawn.',
+        actions: [{ label: 'Keep it', secondary: true }, { label: 'Withdraw', secondary: true, danger: true, onClick: () => {
+          r.revoked = true; logAudit('Record withdrawn', 'Verified record', r.code); saveState(); renderExports(); toast('Record withdrawn.'); } }] });
+    });
+  }
+
+  renderAccess(); renderLink(); renderHistory(); renderExports();
 </script>
 </body>
 </html>
