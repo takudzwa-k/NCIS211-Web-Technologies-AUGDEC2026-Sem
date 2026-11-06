@@ -95,13 +95,14 @@ const DATA = {
   ],
 
   letters: [
-    { lecturer: 'Dr. N. Dube',     type: 'Scholarship support', deadline: '2025-04-30', status: 'progress',  label: 'In progress', purpose: 'Merit scholarship application' },
-    { lecturer: 'Prof. T. Marume', type: 'Reference',           deadline: '2025-03-18', status: 'completed', label: 'Completed',   purpose: 'Internship application' },
-    { lecturer: 'Dr. S. Chuma',    type: 'Recommendation',      deadline: '2025-02-12', status: 'declined',  label: 'Declined',    purpose: 'Postgraduate programme application' }
+    { id: 'L1', lecturer: 'Dr. N. Dube',     type: 'Scholarship support', deadline: '2025-04-30', status: 'progress',  label: 'In progress', purpose: 'Merit scholarship application' },
+    { id: 'L2', lecturer: 'Prof. T. Marume', type: 'Reference',           deadline: '2025-03-18', status: 'completed', label: 'Completed',   purpose: 'Internship application' },
+    { id: 'L3', lecturer: 'Dr. S. Chuma',    type: 'Recommendation',      deadline: '2025-02-12', status: 'declined',  label: 'Declined',    purpose: 'Postgraduate programme application' }
   ],
 
   access: [
-    { name: 'Dr. N. Dube', initials: 'ND', dept: 'Department of Computer Science', sections: 'Achievements, Academic Record', expires: '30 Jun 2025' }
+    { name: 'Dr. N. Dube', initials: 'ND', dept: 'Department of Computer Science', sections: ['Achievements', 'Academic Record'],
+      expires: '30 Jun 2025', expiresISO: '2025-06-30', purpose: 'Scholarship support letter' }
   ],
 
   activity: [
@@ -119,23 +120,34 @@ const DATA = {
 
   /* ---- Lecturer view ---- */
   lecturerRequests: [
-    { student: 'Tendai Moyo',     type: 'Scholarship support', deadline: '2025-04-30', status: 'progress', purpose: 'Merit scholarship application' },
-    { student: 'Rudo Chikwanha',  type: 'Employment support',  deadline: '2025-04-22', status: 'sent',     purpose: 'Graduate trainee application' },
-    { student: 'Tafadzwa Ncube',  type: 'Recommendation',      deadline: '2025-05-08', status: 'accepted', purpose: 'Postgraduate programme application' }
+    { id: 'R1', student: 'Tendai Moyo',    sid: 'AU-CS-230184', letterId: 'L1', type: 'Scholarship support', deadline: '2025-04-30', status: 'progress',
+      purpose: 'Merit scholarship application', achievementIds: [1, 2, 4, 8, 9],
+      keyPoints: 'Please highlight my Dean’s List results and the ZIM ICT innovation win.' },
+    { id: 'R2', student: 'Rudo Chikwanha', sid: 'AU-BM-200742', letterId: null, type: 'Employment support', deadline: '2025-04-22', status: 'sent',
+      purpose: 'Graduate trainee application', achievementIds: [4, 6, 7],
+      keyPoints: 'Mention my leadership and tutoring experience.' },
+    { id: 'R3', student: 'Tafadzwa Ncube', sid: 'AU-CS-240317', letterId: null, type: 'Recommendation', deadline: '2025-05-08', status: 'accepted',
+      purpose: 'Postgraduate programme application', achievementIds: [101, 102], keyPoints: '' }
   ],
 
   /* Students who have shared their profile with this lecturer, or sent a request */
   sharedStudents: [
-    { name: 'Tendai Moyo',    initials: 'TM', programme: 'BSc Computer Science',     level: 'Year 3',                id: 'AU-CS-230184', access: ['Achievements', 'Academic Record'] },
-    { name: 'Tatenda Chari',  initials: 'TC', programme: 'BSc Information Systems',  level: 'Year 4',                id: 'AU-IS-220091', access: ['Achievements'] },
-    { name: 'Rudo Chikwanha', initials: 'RC', programme: 'BCom Business Management', level: 'Alumna · Class of 2024', id: 'AU-BM-200742', access: ['Achievements', 'Academic Record'] },
-    { name: 'Tafadzwa Ncube', initials: 'TN', programme: 'BSc Computer Science',     level: 'Year 2',                id: 'AU-CS-240317', access: ['Achievements'] }
+    { name: 'Tendai Moyo',    initials: 'TM', programme: 'BSc Computer Science',     level: 'Year 3',                id: 'AU-CS-230184', live: true },
+    { name: 'Tatenda Chari',  initials: 'TC', programme: 'BSc Information Systems',  level: 'Year 4',                id: 'AU-IS-220091', access: ['Achievements'], until: '2025-07-31',
+      profile: { gpa: '3.18', cls: 'Upper Second Class', credits: 288, total: 360, achievements: [
+        { id: 201, title: 'Faculty Hackathon Winner', category: 'Academic Awards', date: '2024-10-12', tier: 'Moderate', status: 'verified', verifiedBy: 'Dr. N. Dube' },
+        { id: 202, title: 'IS Society Secretary',     category: 'Leadership',      date: '2024-03-01', tier: 'Minor',    status: 'verified', verifiedBy: 'Department head' } ] } },
+    { name: 'Rudo Chikwanha', initials: 'RC', programme: 'BCom Business Management', level: 'Alumna · Class of 2024', id: 'AU-BM-200742', live: true },
+    { name: 'Tafadzwa Ncube', initials: 'TN', programme: 'BSc Computer Science',     level: 'Year 2',                id: 'AU-CS-240317', access: ['Achievements'], until: '2025-05-31',
+      profile: { gpa: '3.52', cls: 'Upper Second Class', credits: 120, total: 360, achievements: [
+        { id: 101, title: 'Dean’s List — Semester 1', category: 'Dean’s List',  date: '2025-01-30', tier: 'Major', status: 'verified', verifiedBy: 'Academic Records Office' },
+        { id: 102, title: 'Peer Mentor Programme',    category: 'Volunteering', date: '2024-11-05', tier: 'Minor', status: 'verified', verifiedBy: 'Chaplaincy' } ] } }
   ],
 
   /* ---- Admin view ---- */
   adminQueue: [
-    { id: 1, student: 'Tendai Moyo',    sid: 'AU-CS-230184',  title: 'Google Data Analytics Certificate', category: 'Certifications', date: '2025-04-08', files: ['certificate.pdf'], status: 'pending' },
-    { id: 2, student: 'Rudo Chikwanha', sid: 'Alumna · 2024', title: 'Women in Tech Mentorship',          category: 'Volunteering',   date: '2025-04-07', files: ['mentorship-letter.pdf', 'mentorship-photo.jpg'], status: 'pending' }
+    { id: 1, achId: 3, student: 'Tendai Moyo',    sid: 'AU-CS-230184',  title: 'Google Data Analytics Certificate', category: 'Certifications', date: '2025-04-08', files: ['certificate.pdf'], status: 'pending', verifier: 'Academic Records Office' },
+    { id: 2, achId: null, student: 'Rudo Chikwanha', sid: 'Alumna · 2024', title: 'Women in Tech Mentorship',          category: 'Volunteering',   date: '2025-04-07', files: ['mentorship-letter.pdf', 'mentorship-photo.jpg'], status: 'pending', verifier: 'Chaplaincy' }
   ],
   categories: ['Academic Awards', 'Dean’s List', 'Scholarships & Bursaries', 'Conferences & Seminars', 'Certifications',
                'Clubs & Societies', 'Sports', 'Debate & Public Speaking', 'Leadership', 'Volunteering', 'Professional Experience', 'Pre-University'],
@@ -168,3 +180,70 @@ const DATA = {
 
   unreadBadge: 3
 };
+
+
+/* ---------- extra seed data ---------- */
+DATA.lecturers = [
+  { name: 'Dr. N. Dube',     dept: 'Department of Computer Science' },
+  { name: 'Prof. T. Marume', dept: 'Department of Business Studies' },
+  { name: 'Dr. S. Chuma',    dept: 'Department of Information Systems' }
+];
+DATA.verifiers = ['Academic Records Office', 'Lecturer', 'Department head', 'Sports Director', 'Chaplaincy', 'Attachment supervisor'];
+DATA.officialLetters = ['Attachment letter', 'Admission letter'];   // issued by the Records Office (to be confirmed)
+DATA.letterTypes = ['Recommendation', 'Reference', 'Scholarship support', 'Employment support', 'Character reference'];
+DATA.evidenceRequired = ['Academic Awards', 'Scholarships & Bursaries', 'Certifications', 'Conferences & Seminars'];
+
+DATA.drafts = [];
+DATA.accessLog = [
+  { ts: '2025-04-12T10:14', who: 'Dr. N. Dube', what: 'Viewed profile', sections: 'Achievements, Academic Record' }
+];
+DATA.skills = {
+  Student: [{ name: 'English', type: 'Language' }, { name: 'Shona', type: 'Language' }, { name: 'Python', type: 'Technical' }, { name: 'SQL', type: 'Technical' }, { name: 'Web development', type: 'Technical' }],
+  Alumni:  [{ name: 'English', type: 'Language' }, { name: 'Shona', type: 'Language' }, { name: 'Ndebele', type: 'Language' }, { name: 'Excel', type: 'Technical' }, { name: 'Project management', type: 'Technical' }]
+};
+DATA.contact = {
+  Student: { phone: '+263 77 ••• ••45', backup: '' },
+  Alumni:  { phone: '+263 71 ••• ••92', backup: 'rudo.chikwanha@gmail.com' }
+};
+DATA.visibility = { 'Achievements': true, 'Academic Record': true, 'Documents': false };
+DATA.shareLink = null;
+DATA.security = { twoStep: true };
+DATA.loginHistory = [
+  { device: 'Chrome on Ubuntu',  place: 'Harare, ZW', when: '14 Apr 2025 · 18:02', result: 'Signed in' },
+  { device: 'Firefox on Windows', place: 'Harare, ZW', when: '9 Apr 2025 · 07:45',  result: 'Signed in' },
+  { device: 'Unknown browser',   place: 'Lagos, NG',  when: '2 Apr 2025 · 03:11',  result: 'Blocked, code needed' }
+];
+DATA.queueStats = { verified: 0, closed: 0 };
+
+/* ---------- fill in fields the newer screens need ---------- */
+(function normalise() {
+  const verifiedBy = { 1: 'Academic Records Office', 2: 'Dr. N. Dube', 4: 'Department head', 6: 'Chaplaincy', 7: 'Dr. N. Dube', 8: 'Academic Records Office', 9: 'Academic Records Office' };
+  DATA.achievements.forEach(a => {
+    if (!a.categories) a.categories = [a.category];
+    if (!a.level) a.level = 'National';
+    if (!a.description) a.description = 'Added from the university record.';
+    if (!a.files) a.files = a.file ? [a.file] : [];
+    if (!a.submitted) a.submitted = a.id === 3 ? '2025-04-08' : a.date;
+    if (a.status === 'verified' && !a.verifiedBy) a.verifiedBy = verifiedBy[a.id] || 'Academic Records Office';
+    if (!a.history) {
+      a.history = [{ when: a.submitted, text: 'Submitted for verification' }];
+      if (a.status === 'verified') a.history.push({ when: a.date, text: 'Verified by ' + a.verifiedBy });
+      if (a.status === 'rejected') a.history.push({ when: a.date, text: 'Rejected: ' + (a.reason || 'Evidence insufficient') });
+    }
+  });
+})();
+
+/* ---------- keep changes for the browser session so the roles connect ---------- */
+const PERSIST = ['achievements', 'documents', 'letters', 'lecturerRequests', 'access', 'accessLog', 'notifications', 'adminQueue',
+                 'users', 'imports', 'audit', 'drafts', 'skills', 'contact', 'visibility', 'shareLink', 'security', 'queueStats', 'sharedStudents'];
+function saveState() {
+  try { const o = {}; PERSIST.forEach(k => o[k] = DATA[k]); sessionStorage.setItem('au_state', JSON.stringify(o)); } catch (e) {}
+}
+(function loadState() {
+  try {
+    const raw = sessionStorage.getItem('au_state');
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    PERSIST.forEach(k => { if (o[k] !== undefined) DATA[k] = o[k]; });
+  } catch (e) {}
+})();

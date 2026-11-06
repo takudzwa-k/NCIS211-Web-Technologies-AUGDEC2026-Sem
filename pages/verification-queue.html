@@ -56,8 +56,7 @@
 <script src="../js/data.js"></script>
 <script src="../js/app.js"></script>
 <script>
-  const Q = DATA.adminQueue;
-  let verified = 0, closed = 0;   // counters used for the summary cards
+  const Q = DATA.adminQueue, ST = DATA.queueStats, me = DATA.user.name;
 
   document.getElementById('search-wrap').insertAdjacentHTML('afterbegin', icon('search', 18));
   document.getElementById('bulk-ic').innerHTML = icon('down', 16);
@@ -66,16 +65,15 @@
   function stats() {
     const card = (ic, num, lbl) => `<div class="card mini-stat">${icon(ic, 36)}<div><div class="num">${num}</div><div class="lbl">${lbl}</div></div></div>`;
     document.getElementById('stats').innerHTML =
-      card('clock', 12 - closed, 'Awaiting review') +
-      card('circleCheck', 28 + verified, 'Verified this week') +
+      card('clock', 10 + Q.length, 'Awaiting review') +
+      card('circleCheck', 28 + ST.verified, 'Verified this week') +
       card('calendar', '1.8 days', 'Average review time');
   }
 
   function visible() {
     const q = document.getElementById('q').value.toLowerCase().trim();
     const c = document.getElementById('f-cat').value, s = document.getElementById('f-status').value;
-    return Q.filter(x => x.status === s && (!c || x.category === c) &&
-      (!q || (x.student + ' ' + x.title).toLowerCase().includes(q)));
+    return Q.filter(x => x.status === s && (!c || x.category === c) && (!q || (x.student + ' ' + x.title).toLowerCase().includes(q)));
   }
 
   function render() {
@@ -84,53 +82,76 @@
     document.getElementById('all').checked = false;
     document.getElementById('rows').innerHTML = list.map(x => `
       <tr class="clickable" data-id="${x.id}">
-        <td class="td-cb"><input type="checkbox" class="cb row-cb" data-id="${x.id}" aria-label="Select ${x.title}"></td>
-        <td><div class="user-cell"><strong>${x.student}</strong><span>${x.sid}</span></div></td>
-        <td class="strong">${x.title}</td>
-        <td>${x.category}</td>
+        <td class="td-cb"><input type="checkbox" class="cb row-cb" data-id="${x.id}" aria-label="Select ${esc(x.title)}"></td>
+        <td><div class="user-cell"><strong>${esc(x.student)}</strong><span>${esc(x.sid)}</span></div></td>
+        <td><div class="user-cell"><strong>${esc(x.title)}</strong><span>Sent to: ${esc(x.verifier || 'Academic Records Office')}</span></div></td>
+        <td>${esc(x.category)}</td>
         <td>${fmtDate(x.date)}</td>
         <td><span class="file-cell">${icon('file', 18)} ${x.files.length} file${x.files.length > 1 ? 's' : ''}</span></td>
         <td>${x.status === 'pending' ? pill('pending', 'Pending') : pill('progress', 'More evidence')}</td>
         <td>${icon('right', 18)}</td>
       </tr>`).join('');
-
     document.querySelectorAll('.row-cb').forEach(cb => cb.onclick = e => e.stopPropagation());
     document.querySelectorAll('#rows tr').forEach(tr => tr.onclick = () => review(Q.find(x => x.id == tr.dataset.id)));
     stats();
   }
 
+  // the student's own record follows what staff decide
+  const ach = item => item.achId ? DATA.achievements.find(a => a.id === item.achId) : null;
+  const who = item => me + ' · ' + (item.verifier || 'Academic Records Office');
+
+  function doVerify(item, tier) {
+    const a = ach(item);
+    if (a) { a.status = 'verified'; a.tier = tier; a.verifiedBy = who(item); a.history.push({ when: todayISO(), text: 'Verified by ' + who(item) + ' (' + tier + ')' }); }
+    Q.splice(Q.indexOf(item), 1); ST.closed++; ST.verified++;
+    notify(['Student', 'Alumni'], 'check', 'green', 'Achievement verified', item.title + ' has been verified and is now visible on your shared profile.');
+    logAudit('Verified', item.title, 'Tier set to ' + tier);
+  }
+  function doReject(item, note) {
+    const a = ach(item);
+    if (a) { a.status = 'rejected'; a.reason = note; a.history.push({ when: todayISO(), text: 'Rejected: ' + note }); }
+    Q.splice(Q.indexOf(item), 1); ST.closed++;
+    notify(['Student', 'Alumni'], 'x', 'red', 'Achievement rejected', item.title + ': ' + note);
+    logAudit('Rejected', item.title, note);
+  }
+  function doEvidence(item, note) {
+    const a = ach(item);
+    if (a) a.history.push({ when: todayISO(), text: 'More evidence requested: ' + note });
+    item.status = 'evidence';
+    notify(['Student', 'Alumni'], 'x', 'red', 'More evidence required', item.title + ': ' + note);
+    logAudit('Evidence requested', item.title, note);
+  }
+
   function review(item) {
     openModal({
-      wide: true,
-      title: 'Review achievement',
+      wide: true, title: 'Review achievement',
       body: `
         <dl>
-          <dt>Student</dt><dd>${item.student} · ${item.sid}</dd>
-          <dt>Achievement</dt><dd>${item.title}</dd>
-          <dt>Category</dt><dd>${item.category}</dd>
+          <dt>Student</dt><dd>${esc(item.student)} · ${esc(item.sid)}</dd>
+          <dt>Achievement</dt><dd>${esc(item.title)}</dd>
+          <dt>Category</dt><dd>${esc(item.category)}</dd>
+          <dt>Sent to</dt><dd>${esc(item.verifier || 'Academic Records Office')}</dd>
           <dt>Submitted</dt><dd>${fmtDate(item.date)}</dd>
-          <dt>Evidence</dt><dd>${item.files.map(f => '<div class="file-line">' + icon('file', 16) + f + '</div>').join('')}</dd>
+          <dt>Evidence</dt><dd>${item.files.map(f => '<div class="file-line">' + icon('file', 16) + esc(f) + '</div>').join('')}</dd>
         </dl>
-        <div class="form-field" style="margin-top:20px">
-          <label for="tier">Tier (applies when verifying)</label>
+        <div class="fld" style="margin-top:20px"><label for="tier">Tier (applies when verifying)</label>
           <select id="tier"><option>Major</option><option selected>Moderate</option><option>Minor</option></select>
-        </div>
-        <div class="form-field" style="margin-bottom:0">
-          <label for="note">Note to student (required to reject or ask for more evidence)</label>
-          <textarea id="note" placeholder="For example: please add an official certificate."></textarea>
-        </div>`,
+          <div class="hint">For reporting only. Lecturers still judge the real achievement.</div></div>
+        <div class="fld" style="margin-bottom:0"><label for="note">Note to student (required to reject or ask for more evidence)</label>
+          <textarea id="note" placeholder="For example: please add an official certificate."></textarea></div>`,
       actions: [
         { label: 'Cancel', secondary: true },
         { label: 'Request more evidence', secondary: true, onClick: () => {
-            if (!document.getElementById('note').value.trim()) { toast('Add a note so the student knows what is missing.'); return false; }
-            item.status = 'evidence'; render(); toast('Evidence requested from ' + item.student + '.'); } },
+            const n = document.getElementById('note').value.trim();
+            if (!n) { toast('Add a note so the student knows what is missing.'); return false; }
+            doEvidence(item, n); saveState(); render(); toast('Evidence requested from ' + item.student + '.'); } },
         { label: 'Reject', secondary: true, danger: true, onClick: () => {
-            if (!document.getElementById('note').value.trim()) { toast('Add a reason before rejecting.'); return false; }
-            Q.splice(Q.indexOf(item), 1); closed++; render(); toast('Achievement rejected. ' + item.student + ' has been notified.'); } },
+            const n = document.getElementById('note').value.trim();
+            if (!n) { toast('Add a reason before rejecting.'); return false; }
+            doReject(item, n); saveState(); render(); toast('Achievement rejected. ' + item.student + ' has been notified.'); } },
         { label: 'Verify', onClick: () => {
             const tier = document.getElementById('tier').value;
-            Q.splice(Q.indexOf(item), 1); closed++; verified++; render();
-            toast('Verified as ' + tier + '. ' + item.student + ' has been notified.'); } }
+            doVerify(item, tier); saveState(); render(); toast('Verified as ' + tier + '. ' + item.student + ' has been notified.'); } }
       ]
     });
   }
@@ -145,11 +166,10 @@
     if (!ids.length) { toast('Select at least one achievement first.'); return; }
     ids.forEach(id => {
       const item = Q.find(x => x.id === id);
-      if (b.dataset.bulk === 'verify') { Q.splice(Q.indexOf(item), 1); closed++; verified++; }
-      else item.status = 'evidence';
+      if (b.dataset.bulk === 'verify') doVerify(item, 'Moderate'); else doEvidence(item, 'Please add more supporting evidence.');
     });
-    render();
-    toast(b.dataset.bulk === 'verify' ? ids.length + ' achievement(s) verified.' : 'Evidence requested for ' + ids.length + ' achievement(s).');
+    saveState(); render();
+    toast(b.dataset.bulk === 'verify' ? ids.length + ' achievement(s) verified as Moderate.' : 'Evidence requested for ' + ids.length + ' achievement(s).');
   });
   document.getElementById('all').onchange = e => document.querySelectorAll('.row-cb').forEach(c => c.checked = e.target.checked);
 

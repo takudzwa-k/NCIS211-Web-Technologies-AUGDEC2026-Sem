@@ -18,15 +18,15 @@
           <h1>Letter Requests</h1>
           <p>Request and track formal letters from your lecturers.</p>
         </div>
-        <button class="btn" id="new-btn"></button>
+        <a class="btn" id="new-btn" href="new-request.html"></a>
       </div>
 
       <section class="card">
         <div class="toolbar">
           <div class="input-icon" id="search-wrap"><input id="q" type="text" placeholder="Search requests..."></div>
           <select class="select" id="f-status">
-            <option value="">All statuses</option><option value="progress">In progress</option>
-            <option value="completed">Completed</option><option value="declined">Declined</option>
+            <option value="">All statuses</option><option value="sent">Sent</option><option value="accepted">Accepted</option>
+            <option value="progress">In progress</option><option value="completed">Completed</option><option value="declined">Declined</option>
           </select>
         </div>
         <div class="table-wrap">
@@ -44,34 +44,46 @@
 <script src="../js/data.js"></script>
 <script src="../js/app.js"></script>
 <script>
+  const LABEL = { sent: 'Sent', accepted: 'Accepted', progress: 'In progress', completed: 'Completed', declined: 'Declined' };
+  const PILL = { sent: 'progress', accepted: 'progress', progress: 'progress', completed: 'completed', declined: 'declined' };
   document.getElementById('new-btn').innerHTML = icon('plus', 18) + ' New request';
-  document.getElementById('new-btn').onclick = () => toast('The New request form is a later screen.');
   document.getElementById('search-wrap').insertAdjacentHTML('afterbegin', icon('search', 18));
 
   function render() {
     const q = document.getElementById('q').value.toLowerCase().trim();
     const s = document.getElementById('f-status').value;
-    const list = DATA.letters.filter(l =>
-      (!q || l.lecturer.toLowerCase().includes(q) || l.type.toLowerCase().includes(q)) && (!s || l.status === s));
+    const list = DATA.letters.map((l, i) => ({ l, i })).filter(x =>
+      (!q || x.l.lecturer.toLowerCase().includes(q) || x.l.type.toLowerCase().includes(q)) && (!s || x.l.status === s));
     document.getElementById('empty').style.display = list.length ? 'none' : 'block';
-    document.getElementById('rows').innerHTML = list.map((l, i) => `
+    document.getElementById('rows').innerHTML = list.map(x => `
       <tr>
-        <td class="strong">${l.lecturer}</td>
-        <td>${l.type}</td>
-        <td>${fmtDate(l.deadline)}</td>
-        <td>${pill(l.status, l.label)}</td>
-        <td><button class="icon-btn" data-i="${DATA.letters.indexOf(l)}" aria-label="Request details">${icon('more', 20)}</button></td>
+        <td class="strong">${esc(x.l.lecturer)}</td><td>${esc(x.l.type)}</td><td>${fmtDate(x.l.deadline)}</td>
+        <td>${pill(PILL[x.l.status], LABEL[x.l.status])}</td>
+        <td><button class="icon-btn" data-i="${x.i}" aria-label="Request details">${icon('more', 20)}</button></td>
       </tr>`).join('');
-    document.querySelectorAll('[data-i]').forEach(b => b.onclick = () => {
-      const l = DATA.letters[b.dataset.i];
-      openModal({
-        title: 'Request details',
-        body: `<dl><dt>Lecturer</dt><dd>${l.lecturer}</dd><dt>Letter type</dt><dd>${l.type}</dd>
-               <dt>Purpose</dt><dd>${l.purpose}</dd><dt>Deadline</dt><dd>${fmtDate(l.deadline)}</dd>
-               <dt>Status</dt><dd>${pill(l.status, l.label)}</dd></dl>`
-      });
+    document.querySelectorAll('[data-i]').forEach(b => b.onclick = () => details(DATA.letters[b.dataset.i]));
+  }
+
+  function details(l) {
+    const req = DATA.lecturerRequests.find(r => r.letterId === l.id);
+    const acts = [{ label: 'Close', secondary: true }];
+    if (req && (l.status === 'progress' || l.status === 'completed')) {
+      acts.push({ label: 'Ask for a revision', onClick: () => {
+        notify(['Lecturer'], 'inbox', 'amber', 'Revision requested', DATA.user.name + ' asked for changes to the ' + l.type.toLowerCase() + ' letter.');
+        logAudit('Revision requested', l.type + ' letter', 'Requested by ' + DATA.user.name);
+        toast('Revision request sent to ' + l.lecturer + '.');
+      } });
+    }
+    openModal({
+      wide: true, title: 'Request details', actions: acts,
+      body: `<dl><dt>Lecturer</dt><dd>${esc(l.lecturer)}</dd><dt>Letter type</dt><dd>${esc(l.type)}</dd>
+             <dt>Purpose</dt><dd>${esc(l.purpose)}</dd><dt>Deadline</dt><dd>${fmtDate(l.deadline)}</dd>
+             <dt>Status</dt><dd>${pill(PILL[l.status], LABEL[l.status])}</dd>
+             ${l.keyPoints ? '<dt>Your key points</dt><dd>' + esc(l.keyPoints) + '</dd>' : ''}
+             ${req ? '<dt>Shared</dt><dd>' + req.achievementIds.length + ' achievement(s), until ' + fmtDate(l.deadline) + '</dd>' : ''}</dl>`
     });
   }
+
   ['q', 'f-status'].forEach(id => document.getElementById(id).addEventListener('input', render));
   render();
 </script>

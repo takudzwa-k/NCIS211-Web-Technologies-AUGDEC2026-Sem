@@ -67,47 +67,91 @@
 
           <p class="help">Need help? Contact <a href="#">ICT Support</a></p>
         </form>
+
+        <form class="auth-form" id="code-form" style="display:none" novalidate>
+          <div class="kicker">Two-step verification</div>
+          <h2>Check your email</h2>
+          <p class="lead">We sent a 6-digit code to <b id="code-email"></b>. Enter it to finish signing in.</p>
+          <div class="field">
+            <div class="field-top"><label for="code">Verification code</label></div>
+            <input id="code" type="text" inputmode="numeric" maxlength="6" value="123456" autocomplete="one-time-code">
+          </div>
+          <button class="btn block" type="submit">Verify and sign in</button>
+          <div class="notice" id="code-notice"></div>
+          <p class="help"><a href="#" id="resend">Send a new code</a> &nbsp;·&nbsp; <a href="#" id="back-login">Back to sign in</a></p>
+          <p class="help" style="margin-top:8px">Prototype: the code is already filled in.</p>
+        </form>
+
+        <form class="auth-form" id="reset-form" style="display:none" novalidate>
+          <div class="kicker">Password help</div>
+          <h2>Reset your password</h2>
+          <p class="lead">Enter your registered email address and we will send you a reset link.</p>
+          <div class="field">
+            <div class="field-top"><label for="reset-email">Email address</label></div>
+            <input id="reset-email" type="email" autocomplete="username">
+          </div>
+          <button class="btn block" type="submit">Send reset link</button>
+          <div class="notice" id="reset-notice"></div>
+          <p class="help"><a href="#" id="back-login-2">Back to sign in</a></p>
+        </form>
       </section>
 
     </div>
   </div>
 
   <script>
-    const form = document.getElementById('login-form');
-    const notice = document.getElementById('notice');
+    const forms = { login: 'login-form', code: 'code-form', reset: 'reset-form' };
+    function show(which) {
+      Object.keys(forms).forEach(k => { document.getElementById(forms[k]).style.display = k === which ? '' : 'none'; });
+    }
+    function say(id, text) { const n = document.getElementById(id); n.textContent = text; n.style.display = text ? 'block' : 'none'; }
 
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
+    const home = { Student: 'profile.html', Alumni: 'profile.html', Lecturer: 'find-students.html', Admin: 'verification-queue.html' };
+    function finish() {
       const role = document.getElementById('role').value;
+      try { sessionStorage.setItem('au_role', role); } catch (err) {}
+      window.location.href = 'pages/' + home[role];
+    }
+    function twoStepOn() {
+      try { const st = JSON.parse(sessionStorage.getItem('au_state') || '{}'); if (st.security && st.security.twoStep === false) return false; } catch (e) {}
+      return true;
+    }
+
+    document.getElementById('login-form').addEventListener('submit', function (e) {
+      e.preventDefault();
       const email = document.getElementById('email').value.trim();
       const pass = document.getElementById('password').value;
+      if (!email || !pass) { say('notice', 'Enter your email address and password to sign in.'); return; }
+      say('notice', '');
+      if (twoStepOn()) { document.getElementById('code-email').textContent = email; say('code-notice', ''); show('code'); document.getElementById('code').focus(); }
+      else finish();
+    });
 
-      if (!email || !pass) {
-        notice.textContent = 'Enter your email address and password to sign in.';
-        notice.style.display = 'block';
-        return;
-      }
-      try { sessionStorage.setItem('au_role', role); } catch (err) {}
-      const home = { Student: 'profile.html', Alumni: 'profile.html', Lecturer: 'find-students.html', Admin: 'verification-queue.html' };
-      window.location.href = 'pages/' + home[role];
+    document.getElementById('code-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (document.getElementById('code').value.trim() === '123456') finish();
+      else say('code-notice', 'That code is not right. Check your email and try again.');
+    });
+    document.getElementById('resend').addEventListener('click', function (e) { e.preventDefault(); say('code-notice', 'A new code has been sent.'); });
+    document.getElementById('back-login').addEventListener('click', function (e) { e.preventDefault(); show('login'); });
+    document.getElementById('back-login-2').addEventListener('click', function (e) { e.preventDefault(); say('reset-notice', ''); show('login'); });
+
+    document.getElementById('forgot').addEventListener('click', function (e) {
+      e.preventDefault();
+      document.getElementById('reset-email').value = document.getElementById('email').value;
+      say('reset-notice', ''); show('reset');
+    });
+    document.getElementById('reset-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!/^\S+@\S+\.\S+$/.test(document.getElementById('reset-email').value.trim())) { say('reset-notice', 'Enter a valid email address.'); return; }
+      say('reset-notice', 'If this address is registered, a reset link is on its way.');
     });
 
     // swap the sample email when the view changes
     document.getElementById('role').addEventListener('change', function () {
-      const emails = {
-        Student: 't.moyo@students.africau.edu',
-        Alumni: 'r.chikwanha@alumni.africau.edu',
-        Lecturer: 'n.dube@africau.edu',
-        Admin: 'c.nyathi@africau.edu'
-      };
+      const emails = { Student: 't.moyo@students.africau.edu', Alumni: 'r.chikwanha@alumni.africau.edu', Lecturer: 'n.dube@africau.edu', Admin: 'c.nyathi@africau.edu' };
       document.getElementById('email').value = emails[this.value];
-      notice.style.display = 'none';
-    });
-
-    document.getElementById('forgot').addEventListener('click', function (e) {
-      e.preventDefault();
-      notice.textContent = 'Password reset is not part of this prototype.';
-      notice.style.display = 'block';
+      say('notice', '');
     });
   </script>
 </body>

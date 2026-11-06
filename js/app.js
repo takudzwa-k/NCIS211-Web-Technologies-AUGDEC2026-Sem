@@ -31,6 +31,12 @@ const ICONS = {
   history: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
   activity: '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
   fileDown: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  printer: '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>',
+  back: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
   menu: '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>'
 };
 
@@ -43,6 +49,32 @@ function store(key, val) {
   try { if (val === undefined) return sessionStorage.getItem(key); sessionStorage.setItem(key, val); } catch (e) { return null; }
 }
 function notificationsRead() { return store('au_read') === '1'; }
+
+/* ---------- shared helpers used across roles ---------- */
+function pad2(n) { return String(n).padStart(2, '0'); }
+function todayISO() { const d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function addDays(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function nextId(list) { return list.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0) + 1; }
+function initialsOf(name) { return name.replace(/^(Dr\.|Prof\.)\s*/i, '').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase(); }
+
+/* tell another role something happened (shows in their Notifications) */
+function notify(to, ic, tone, title, desc) {
+  DATA.notifications.unshift({ icon: ic, tone: tone, title: title, desc: desc, time: 'Just now', unread: true, isNew: true, to: to });
+  saveState();
+}
+/* record an action in the audit log */
+function logAudit(action, item, details) {
+  const d = new Date();
+  DATA.audit.unshift({ ts: todayISO() + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()), user: DATA.user.name, action: action, item: item, details: details });
+  saveState();
+}
+function notifForRole(n) { return !n.to || n.to.indexOf(CURRENT_ROLE) > -1; }
+function notifUnread(n) { return n.isNew ? n.unread : (n.unread && !notificationsRead()); }
+function notifBadge() {
+  const base = notificationsRead() ? 0 : DATA.unreadBadge;
+  return base + DATA.notifications.filter(n => n.isNew && n.unread && notifForRole(n)).length;
+}
+function lecturerName() { return DATA.lecturers[0].name; }
 
 /* ---------- helpers ---------- */
 function fmtDate(iso, pad) {
@@ -84,6 +116,153 @@ function openModal({ title, body, actions, wide }) {
   o.addEventListener('click', e => { if (e.target === o) close(); });
   document.addEventListener('keydown', onKey);
   document.body.appendChild(o);
+  o.close = close;
+  return o;
+}
+
+/* ---------- uploaded files (kept in the browser so they can be previewed and downloaded) ---------- */
+const fileStore = {
+  db: null,
+  open() {
+    return new Promise((resolve, reject) => {
+      if (this.db) return resolve(this.db);
+      try {
+        const r = indexedDB.open('au_files', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('files');
+        r.onsuccess = () => { this.db = r.result; resolve(this.db); };
+        r.onerror = () => reject(r.error);
+      } catch (e) { reject(e); }
+    });
+  },
+  run(mode, fn) {
+    return this.open().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction('files', mode); const req = fn(tx.objectStore('files'));
+      tx.oncomplete = () => resolve(req && req.result);
+      tx.onerror = tx.onabort = () => reject(tx.error);
+    })).catch(() => null);
+  },
+  put(id, blob) { return this.run('readwrite', st => st.put(blob, id)); },
+  get(id)       { return this.run('readonly',  st => st.get(id)); },
+  del(id)       { return this.run('readwrite', st => st.delete(id)); }
+};
+
+function fileSize(bytes) { return bytes > 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB'; }
+function fileExt(name) { return name.split('.').pop().toUpperCase().replace('JPEG', 'JPG'); }
+
+function downloadDoc(d) {
+  if (!d.id) { toast('This is a sample document from the demo data, so there is no file to download.'); return; }
+  fileStore.get(d.id).then(blob => {
+    if (!blob) { toast('That file is no longer stored in this browser.'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = d.name; document.body.appendChild(a); a.click(); a.remove();
+  });
+}
+
+function previewDoc(d) {
+  const sample = () => openModal({ title: esc(d.name), body: 'This is a sample document from the demo data, so there is no file to show. Files you upload yourself can be previewed here.' });
+  if (!d.id) { sample(); return; }
+  fileStore.get(d.id).then(blob => {
+    if (!blob) { sample(); return; }
+    const url = URL.createObjectURL(blob);
+    const body = /^image\//.test(blob.type)
+      ? `<img src="${url}" alt="${esc(d.name)}" style="max-width:100%;max-height:60vh;display:block;margin:0 auto;border-radius:8px">`
+      : `<iframe src="${url}" title="${esc(d.name)}" style="width:100%;height:60vh;border:1px solid var(--border);border-radius:8px"></iframe>`;
+    openModal({ wide: true, title: esc(d.name), body: body,
+      actions: [{ label: 'Close', secondary: true }, { label: 'Download', onClick: () => { downloadDoc(d); return false; } }] });
+  });
+}
+
+/* The upload dialog: drop or choose files, see each one, choose what they are for, upload. */
+function openUploadDialog(opts) {
+  opts = opts || {};
+  const items = [];
+  const achOptions = DATA.achievements.map(a => `<option value="${a.id}">${esc(a.title)}</option>`).join('');
+  const o = openModal({
+    wide: true,
+    title: 'Upload document',
+    body: `
+      <div class="fld" id="up-g-link"><label for="up-link">This document is for</label>
+        <select id="up-link"><option value="">Choose what this document is for</option>
+          <option value="__transcript">Official transcript</option>
+          <optgroup label="My achievements">${achOptions}</optgroup></select>
+        <div class="msg">Choose what this document is for.</div></div>
+      <div class="dropzone" id="up-drop" tabindex="0" role="button" aria-label="Choose files to upload">
+        <div>${icon('upload', 26)}</div><strong>Drop files here or click to choose</strong>PDF, JPG or PNG, up to 5 MB each</div>
+      <input type="file" id="up-input" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none">
+      <div class="up-list" id="up-list"></div>`,
+    actions: [
+      { label: 'Cancel', secondary: true },
+      { label: 'Upload', onClick: () => { finish(); return false; } }
+    ]
+  });
+  const q = sel => o.querySelector(sel);
+  const upBtn = o.querySelectorAll('.m-actions button')[1];
+  if (opts.preset) q('#up-link').value = opts.preset;
+
+  function refresh() {
+    upBtn.disabled = !items.length || items.some(i => !i.done);
+    upBtn.textContent = items.length ? 'Upload ' + items.length + ' file' + (items.length > 1 ? 's' : '') : 'Upload';
+  }
+  function addFiles(list) {
+    [...list].forEach(f => {
+      if (!/\.(pdf|jpe?g|png)$/i.test(f.name)) { toast(f.name + ' is not a PDF, JPG or PNG.'); return; }
+      if (f.size > 5 * 1024 * 1024) { toast(f.name + ' is larger than 5 MB.'); return; }
+      if (items.some(i => i.file.name === f.name && i.file.size === f.size)) { toast(f.name + ' is already in the list.'); return; }
+      const it = { file: f, done: false, pct: 0 };
+      const isImg = /^image\//.test(f.type);
+      it.el = document.createElement('div'); it.el.className = 'up-row';
+      it.el.innerHTML = `<div class="up-thumb">${isImg ? '<img alt="">' : icon('doc', 22)}</div>
+        <div class="up-meta"><strong>${esc(f.name)}</strong><span class="up-state">${fileSize(f.size)} · Uploading…</span>
+          <div class="up-bar"><i style="width:0%"></i></div></div>
+        <button type="button" class="icon-btn" aria-label="Remove ${esc(f.name)}">${icon('x', 16)}</button>`;
+      if (isImg) { it.url = URL.createObjectURL(f); it.el.querySelector('img').src = it.url; }
+      it.el.querySelector('button').onclick = () => { clearInterval(it.timer); items.splice(items.indexOf(it), 1); it.el.remove(); refresh(); };
+      it.timer = setInterval(() => {
+        it.pct = Math.min(100, it.pct + 12 + Math.random() * 22);
+        it.el.querySelector('.up-bar i').style.width = it.pct + '%';
+        if (it.pct >= 100) { clearInterval(it.timer); it.done = true; it.el.querySelector('.up-state').textContent = fileSize(f.size) + ' · Ready'; it.el.classList.add('ready'); refresh(); }
+      }, 110);
+      items.push(it); q('#up-list').appendChild(it.el);
+    });
+    refresh();
+  }
+  const drop = q('#up-drop'), input = q('#up-input');
+  drop.onclick = () => input.click();
+  drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } };
+  input.onchange = () => { addFiles(input.files); input.value = ''; };
+  ['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+  refresh();
+
+  function finish() {
+    const link = q('#up-link').value;
+    q('#up-g-link').classList.toggle('err', !link);
+    if (!link) { toast('Choose what this document is for.'); return; }
+    upBtn.disabled = true; upBtn.textContent = 'Uploading…';
+    const ach = link === '__transcript' ? null : DATA.achievements.find(a => a.id === +link);
+    const linked = ach ? ach.title : 'Official transcript';
+    const puts = [], stamp = Date.now(); let added = 0;
+    items.forEach((it, i) => {
+      if (DATA.documents.some(d => d.name === it.file.name && d.linked === linked)) return;
+      const id = 'F' + stamp + '_' + i;
+      DATA.documents.push({ id: id, name: it.file.name, linked: linked, type: fileExt(it.file.name), date: todayISO(), status: 'pending', size: fileSize(it.file.size) });
+      puts.push(fileStore.put(id, it.file)); added++;
+      if (ach && ach.files.indexOf(it.file.name) === -1) {
+        ach.files.push(it.file.name);
+        ach.history.push({ when: todayISO(), text: 'Evidence added: ' + it.file.name });
+      }
+    });
+    Promise.all(puts).then(() => {
+      if (added) {
+        notify(['Admin'], 'doc', 'amber', 'Document uploaded', DATA.user.name + ' uploaded ' + added + ' document' + (added > 1 ? 's' : '') + ' for ' + linked + '.');
+        logAudit('Created', added + ' document' + (added > 1 ? 's' : ''), 'Uploaded for ' + linked);
+      }
+      saveState(); o.close();
+      toast(added ? added + ' document' + (added > 1 ? 's' : '') + ' uploaded. Staff will review ' + (added > 1 ? 'them' : 'it') + '.' : 'Those files were already uploaded.');
+      if (opts.onDone) opts.onDone();
+    });
+  }
   return o;
 }
 
@@ -133,7 +312,7 @@ function buildShell() {
   const allKeys = NAV.reduce((acc, g) => acc.concat(g.items.map(i => i.key)), []);
   if (allKeys.indexOf(page) === -1) { window.location.replace(ROLE_HOME[CURRENT_ROLE]); return; }
   const u = DATA.user;
-  const badge = notificationsRead() ? 0 : DATA.unreadBadge;
+  const badge = notifBadge();
 
   document.getElementById('sidebar').innerHTML = `
     <div class="brand">
@@ -178,6 +357,7 @@ function buildShell() {
           ${['Student', 'Alumni', 'Lecturer', 'Admin'].map(r => `
             <button data-role="${r}" class="${r === CURRENT_ROLE ? 'current' : ''}">${r}${r === CURRENT_ROLE ? icon('check', 18) : ''}</button>`).join('')}
           <hr>
+          <button id="reset-demo">Reset demo data</button>
           <button class="signout" id="signout">Sign out</button>
         </div>
       </div>
@@ -194,6 +374,10 @@ function buildShell() {
     store('au_role', r);
     window.location.href = ROLE_HOME[r];
   });
+  document.getElementById('reset-demo').onclick = () => {
+    try { sessionStorage.removeItem('au_state'); sessionStorage.removeItem('au_read'); indexedDB.deleteDatabase('au_files'); } catch (e) {}
+    window.location.reload();
+  };
   document.getElementById('signout').onclick = () => { window.location.href = '../index.html'; };
 
   // mobile sidebar
@@ -207,4 +391,9 @@ function buildShell() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', buildShell);
+function flash(msg) { store('au_flash', msg); }
+document.addEventListener('DOMContentLoaded', () => {
+  buildShell();
+  const f = store('au_flash');
+  if (f) { try { sessionStorage.removeItem('au_flash'); } catch (e) {} toast(f); }
+});

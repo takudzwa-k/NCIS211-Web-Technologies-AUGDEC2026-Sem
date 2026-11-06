@@ -66,6 +66,7 @@
   }
 
   function render() {
+    saveState();
     const q = document.getElementById('q').value.toLowerCase().trim();
     const r = document.getElementById('f-role').value;
     const list = U.map((u, i) => ({ u, i })).filter(x =>
@@ -91,8 +92,8 @@
       actions: [
         { label: 'Cancel', secondary: true },
         { label: u.status === 'inactive' ? 'Reactivate' : 'Deactivate', secondary: true, danger: u.status !== 'inactive', onClick: () => {
-            u.status = u.status === 'inactive' ? 'verified' : 'inactive'; render(); toast(u.name + (u.status === 'inactive' ? ' deactivated.' : ' reactivated.')); } },
-        { label: 'Save changes', onClick: () => { u.role = document.getElementById('role').value; render(); toast('Role updated for ' + u.name + '.'); } }
+            u.status = u.status === 'inactive' ? 'verified' : 'inactive'; logAudit('Edited', u.name, u.status === 'inactive' ? 'Deactivated' : 'Reactivated'); render(); toast(u.name + (u.status === 'inactive' ? ' deactivated.' : ' reactivated.')); } },
+        { label: 'Save changes', onClick: () => { u.role = document.getElementById('role').value; logAudit('Edited', u.name, 'Role set to ' + u.role); render(); toast('Role updated for ' + u.name + '.'); } }
       ]
     });
   }
@@ -108,7 +109,7 @@
           const name = document.getElementById('n').value.trim(), email = document.getElementById('e').value.trim();
           if (!name || !/^\S+@\S+\.\S+$/.test(email)) { toast('Enter a name and a valid email address.'); return false; }
           U.push({ name, email, role: document.getElementById('r').value, status: 'invited', last: 'Never' });
-          render(); toast('Invitation sent to ' + email + '.'); } }
+          logAudit('Created', name, 'Invited as ' + document.getElementById('r').value); render(); toast('Invitation sent to ' + email + '.'); } }
     ]
   });
 

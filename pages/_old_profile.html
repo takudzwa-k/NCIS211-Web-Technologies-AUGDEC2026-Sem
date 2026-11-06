@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Profile · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="profile">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>My Profile</h1>
+          <p>Your verified university record and recent activity.</p>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <button class="btn secondary" id="cv-btn"></button>
+          <a class="btn" id="add-btn" href="add-achievement.html"></a>
+        </div>
+      </div>
+
+      <section class="card profile-head" id="head-card"></section>
+      <section class="stats" id="stats"></section>
+
+      <div class="two-col">
+        <section class="card card-pad">
+          <div class="card-head">
+            <div><h2>Personal information</h2><div class="sub">University record details. You can update contact details only.</div></div>
+            <button class="link" id="req-update">Request update</button>
+          </div>
+          <dl id="info"></dl>
+        </section>
+        <section class="card card-pad">
+          <div class="card-head">
+            <div><h2>Recent activity</h2><div class="sub">Latest updates to your record</div></div>
+            <a class="link" href="notifications.html">View all</a>
+          </div>
+          <div id="activity"></div>
+        </section>
+      </div>
+
+      <section class="card card-pad stack-gap">
+        <div class="card-head">
+          <div><h2>Skills</h2><div class="sub">Languages and technical skills that lecturers can see when they write letters.</div></div>
+          <button class="btn secondary small" id="add-skill"></button>
+        </div>
+        <div class="skills-wrap" id="skills"></div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  const u = DATA.user, a = DATA.academic;
+  const contact = () => DATA.contact[CURRENT_ROLE];
+  document.getElementById('add-btn').innerHTML = icon('plus', 18) + ' Add Achievement';
+  document.getElementById('cv-btn').innerHTML = icon('fileDown', 18) + ' Generate CV';
+  document.getElementById('add-skill').innerHTML = icon('plus', 16) + ' Add skill';
+
+  function renderAll() {
+    document.getElementById('head-card').innerHTML = `
+      <div class="avatar lg">${u.initials}</div>
+      <div>
+        <h2>${u.name} <span class="pill plain">${u.badge}</span></h2>
+        <div class="email">${u.email}</div>
+        <div class="meta-row">
+          <span>${icon('cap', 18)} ${u.programme}</span>
+          <span>${icon('user', 18)} Student ID: ${u.studentId}</span>
+        </div>
+      </div>
+      <button class="icon-btn edit" aria-label="Edit contact details" title="Edit contact details">${icon('pencil', 18)}</button>`;
+    document.querySelector('.profile-head .edit').onclick = editContact;
+
+    const verified = DATA.achievements.filter(x => x.status === 'verified');
+    const pending = DATA.achievements.filter(x => x.status === 'pending');
+    const cats = new Set(verified.map(x => x.category)).size;
+    const pendingNote = pending.length ? 'Submitted ' + fmtDate(pending[0].submitted) : 'Nothing waiting';
+    const stat = (tone, ic, label, value, note) => `
+      <div class="card stat">
+        <div class="stat-top"><div class="stat-icon ${tone}">${icon(ic, 22)}</div><div class="label">${label}</div></div>
+        <div class="value ${tone}">${value}</div>
+        <div class="note">${note}</div>
+      </div>`;
+    document.getElementById('stats').innerHTML =
+      stat('red',   'cap',         'Cumulative GPA',        a.gpa,           icon('lock', 13) + ' Official, from university records') +
+      stat('grey',  'book',        'Credits completed',     a.credits,       'of ' + a.totalCredits + ' programme credits') +
+      stat('green', 'circleCheck', 'Verified achievements', verified.length, 'Across ' + cats + ' categories') +
+      stat('amber', 'clock',       'Pending review',        pending.length,  pendingNote);
+
+    const rows = [['Student ID', u.studentId], ['Programme', u.programme], ['Faculty', u.faculty], ['Year of entry', u.entry],
+                  ['Status', u.status], ['Phone', contact().phone], ['Backup email', contact().backup || 'Not added']];
+    document.getElementById('info').innerHTML = rows.map(r => `<div class="info-row"><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
+
+    document.getElementById('activity').innerHTML = DATA.activity.map(x => `
+      <div class="activity-item">
+        <div class="round-icon ${x.tone}">${icon(x.icon, 20)}</div>
+        <div><strong>${x.title}</strong><div class="desc">${x.desc}</div><div class="time">${x.time}</div></div>
+      </div>`).join('');
+
+    const sk = DATA.skills[CURRENT_ROLE];
+    document.getElementById('skills').innerHTML = sk.length
+      ? sk.map((x, i) => `<span class="skill-chip">${esc(x.name)} <small>${x.type}</small><button data-rm="${i}" aria-label="Remove ${esc(x.name)}">${icon('x', 12)}</button></span>`).join('')
+      : '<span style="color:var(--muted)">No skills added yet.</span>';
+    document.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { sk.splice(+b.dataset.rm, 1); saveState(); renderAll(); });
+  }
+
+  function editContact() {
+    const c = contact();
+    openModal({
+      title: 'Edit contact details',
+      body: `<p style="margin-bottom:16px">Identity and academic details are locked and come from university records. Only contact details can be changed here.</p>
+             <div class="fld"><label for="ph">Phone number</label><input id="ph" type="text" value="${esc(c.phone)}"></div>
+             <div class="fld" style="margin-bottom:0"><label for="bk">Backup personal email</label><input id="bk" type="email" value="${esc(c.backup)}">
+               <div class="hint">Used to keep your access after graduation, in case your university email expires.</div></div>`,
+      actions: [{ label: 'Cancel', secondary: true }, { label: 'Save', onClick: () => {
+        const bk = document.getElementById('bk').value.trim();
+        if (bk && !/^\S+@\S+\.\S+$/.test(bk)) { toast('Enter a valid backup email address.'); return false; }
+        c.phone = document.getElementById('ph').value.trim() || c.phone; c.backup = bk; saveState(); renderAll(); toast('Contact details saved.');
+      } }]
+    });
+  }
+
+  document.getElementById('req-update').onclick = () => openModal({
+    title: 'Request an update',
+    body: 'Identity and academic details come from university records, so changes are made by the registry. Tell us what needs correcting and an administrator will follow up.',
+    actions: [{ label: 'Cancel', secondary: true }, { label: 'Send request', onClick: () => { notify(['Admin'], 'bell', 'grey', 'Record update requested', u.name + ' asked for a change to their personal details.'); toast('Update request sent.'); } }]
+  });
+
+  document.getElementById('add-skill').onclick = () => openModal({
+    title: 'Add a skill',
+    body: `<div class="fld"><label for="sn">Skill</label><input id="sn" type="text" placeholder="For example: Public speaking"></div>
+           <div class="fld" style="margin-bottom:0"><label for="st">Type</label><select id="st"><option>Technical</option><option>Language</option></select></div>`,
+    actions: [{ label: 'Cancel', secondary: true }, { label: 'Add skill', onClick: () => {
+      const n = document.getElementById('sn').value.trim();
+      if (!n) { toast('Enter a skill name.'); return false; }
+      DATA.skills[CURRENT_ROLE].push({ name: n, type: document.getElementById('st').value }); saveState(); renderAll();
+    } }]
+  });
+
+  /* ---- Generate CV: opens a clean printable page ---- */
+  document.getElementById('cv-btn').onclick = () => {
+    const ver = DATA.achievements.filter(x => x.status === 'verified');
+    const byCat = {};
+    ver.forEach(x => (byCat[x.category] = byCat[x.category] || []).push(x));
+    const sk = DATA.skills[CURRENT_ROLE];
+    // No <html>/<head>/<body> tags here on purpose: a closing body tag inside a script
+    // gets hit by Live Server's auto-reload snippet and breaks the whole page.
+    const html = `<meta charset="utf-8"><title>CV · ${u.name}</title>
+      <style>body{font-family:Arial,Helvetica,sans-serif;color:#111;max-width:760px;margin:40px auto;padding:0 24px;line-height:1.5}
+      h1{margin:0;font-size:28px}h2{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:#C8102E;border-bottom:2px solid #C8102E;padding-bottom:4px;margin-top:28px}
+      .muted{color:#555;font-size:14px}li{margin-bottom:6px}.row{display:flex;justify-content:space-between}</style>
+      <h1>${u.name}</h1><div class="muted">${u.programme} · ${u.faculty} · Africa University<br>${u.email} · ${contact().phone}${contact().backup ? ' · ' + contact().backup : ''}</div>
+      <h2>Academic record</h2><div>Cumulative GPA ${a.gpa} (${a.class}) · ${a.credits} of ${a.totalCredits} credits completed</div>
+      <div class="muted">Official figures from university records. Last updated ${a.lastUpdated}.</div>
+      <h2>Verified achievements</h2>
+      ${Object.keys(byCat).map(c => `<strong>${c}</strong><ul>${byCat[c].map(x => `<li><span class="row"><span>${x.title}${x.tier ? ' (' + x.tier + ')' : ''}</span><span class="muted">${fmtDate(x.date)}</span></span></li>`).join('')}</ul>`).join('')}
+      <h2>Skills</h2><div>${sk.map(x => x.name).join(', ') || 'None listed'}</div>
+      </body></html><p class="muted" style="margin-top:32px">Only achievements verified by university staff are listed. Generated ${fmtDate(todayISO())}.</p>`;
+    const w = window.open('', '_blank');
+    if (!w) { toast('Allow pop-ups to open your CV.'); return; }
+    w.document.write(html); w.document.close();
+    setTimeout(() => w.print(), 400);
+  };
+
+  renderAll();
+</script>
+</body>
+</html>

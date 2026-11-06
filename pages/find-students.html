@@ -39,33 +39,42 @@
 <script>
   document.querySelector('.big-search').insertAdjacentHTML('afterbegin', icon('search', 20));
 
+  // what each student has let this lecturer see right now
+  function accessFor(s) {
+    if (!s.live) return { sections: s.access, until: s.until };
+    const a = DATA.access.find(x => x.name === lecturerName());
+    if (!a) return null;                                   // student revoked access
+    const secs = a.sections.filter(x => x === 'Selected achievements' || DATA.visibility[x]);
+    return { sections: secs.length ? secs : ['Nothing visible'], until: a.expiresISO };
+  }
+
   function render() {
     const q = document.getElementById('q').value.toLowerCase().trim();
-    const list = DATA.sharedStudents.filter(s =>
-      !q || (s.name + ' ' + s.id + ' ' + s.programme).toLowerCase().includes(q));
+    const list = DATA.sharedStudents.filter(s => accessFor(s) &&
+      (!q || (s.name + ' ' + s.id + ' ' + s.programme).toLowerCase().includes(q)));
 
     document.getElementById('count').textContent = q
       ? list.length + ' matching student' + (list.length === 1 ? '' : 's')
-      : list.length + ' students have shared their profile with you';
+      : list.length + ' student' + (list.length === 1 ? ' has' : 's have') + ' shared their profile with you';
 
     if (!list.length) {
       document.getElementById('results').innerHTML =
         '<div class="card empty"><strong>No students found</strong>Check the spelling, or ask the student to grant you access.</div>';
       return;
     }
-    document.getElementById('results').innerHTML = list.map((s, i) => `
-      <div class="card student-card">
+    document.getElementById('results').innerHTML = list.map(s => {
+      const ac = accessFor(s);
+      return `<div class="card student-card">
         <div class="avatar">${s.initials}</div>
         <div class="who">
-          <h3>${s.name}</h3>
-          <div class="prog">${s.programme} · ${s.level}</div>
-          <div class="sid">${s.id}</div>
+          <h3>${esc(s.name)}</h3>
+          <div class="prog">${esc(s.programme)} · ${esc(s.level)}</div>
+          <div class="sid">${s.id}${ac.until ? ' · Access until ' + fmtDate(ac.until) : ''}</div>
         </div>
-        <div class="chips">${s.access.map(a => '<span class="chip">' + a + '</span>').join('')}</div>
-        <button class="btn secondary" data-open="${s.name}">Open profile ${icon('right', 16)}</button>
-      </div>`).join('');
-    document.querySelectorAll('[data-open]').forEach(b => b.onclick = () =>
-      toast('The student profile view for lecturers is the next screen to build.'));
+        <div class="chips">${ac.sections.map(a => '<span class="chip">' + esc(a) + '</span>').join('')}</div>
+        <a class="btn secondary" href="student-profile.html?id=${encodeURIComponent(s.id)}">Open profile ${icon('right', 16)}</a>
+      </div>`;
+    }).join('');
   }
 
   document.getElementById('search-form').addEventListener('submit', e => { e.preventDefault(); render(); });

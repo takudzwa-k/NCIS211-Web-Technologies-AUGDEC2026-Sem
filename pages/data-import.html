@@ -54,6 +54,7 @@
   document.getElementById('tile').innerHTML = icon('upload', 32);
 
   function render() {
+    saveState();
     document.getElementById('rows').innerHTML = H.map(h => `
       <tr>
         <td class="strong"><span class="file-cell">${icon('doc', 20)} ${h.name}</span></td>
@@ -126,7 +127,7 @@
               const picked = [...document.querySelectorAll('[data-map]')].map(s => s.value);
               if (new Set(picked).size !== picked.length) { toast('Each field needs its own column.'); return false; }
               H.unshift({ name: file.name, date: new Date().toISOString().slice(0, 10), by: DATA.user.name, rows: data.length, result: 'Completed' });
-              render(); toast(data.length.toLocaleString('en-US') + ' records imported.'); } }
+              logAudit('Data imported', file.name, data.length.toLocaleString('en-US') + ' academic records'); render(); toast(data.length.toLocaleString('en-US') + ' records imported.'); } }
         ]
       });
     };

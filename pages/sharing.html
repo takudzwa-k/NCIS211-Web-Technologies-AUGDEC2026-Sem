@@ -24,8 +24,8 @@
         <section class="card card-pad">
           <h2>Profile visibility</h2>
           <div class="sub" style="margin-bottom:18px">Choose which sections approved lecturers can see.</div>
-          <label class="check-row"><div><strong>Achievements</strong><span>Verified items are shown by default</span></div><input type="checkbox" data-sec="Achievements" checked></label>
-          <label class="check-row"><div><strong>Academic Record</strong><span>Official grades and GPA</span></div><input type="checkbox" data-sec="Academic Record" checked></label>
+          <label class="check-row"><div><strong>Achievements</strong><span>Verified items are shown by default</span></div><input type="checkbox" data-sec="Achievements"></label>
+          <label class="check-row"><div><strong>Academic Record</strong><span>Official grades and GPA</span></div><input type="checkbox" data-sec="Academic Record"></label>
           <label class="check-row"><div><strong>Documents</strong><span>Supporting evidence files</span></div><input type="checkbox" data-sec="Documents"></label>
         </section>
         <section class="card private-card" id="private"></section>
@@ -33,10 +33,38 @@
 
       <section class="card">
         <div class="card-top">
-          <div><h2>Lecturer access</h2><div class="sub">People who currently have permission to view your profile.</div></div>
+          <div><h2>Lecturer access</h2><div class="sub">People who currently have permission to view your profile. Access always has a purpose and an end date.</div></div>
           <button class="btn" id="grant"></button>
         </div>
         <div id="access"></div>
+      </section>
+
+      <div class="two-col-eq">
+        <section class="card card-pad">
+          <h2>Share link</h2>
+          <div class="sub">Send one link instead of many documents. It expires, and you can cancel it at any time.</div>
+          <div id="link-box"></div>
+        </section>
+        <section class="card card-pad">
+          <h2>Who viewed your profile</h2>
+          <div class="sub">You get an in-app notification every time someone opens your profile.</div>
+          <div id="history" style="margin-top:8px"></div>
+        </section>
+      </div>
+
+      <section class="card card-pad stack-gap">
+        <h2>Account security</h2>
+        <div class="sub">Sign-ins from a new place need an extra check, and you are alerted when it happens.</div>
+        <div class="set-row" style="margin-top:14px">
+          <div><strong>Two-step verification</strong><span>A one-time code is sent to your email when you sign in.</span></div>
+          <input type="checkbox" class="toggle" id="twostep" aria-label="Two-step verification">
+        </div>
+        <div class="table-wrap" style="margin-top:6px">
+          <table>
+            <thead><tr><th>Device</th><th>Place</th><th>When</th><th>Result</th></tr></thead>
+            <tbody id="logins"></tbody>
+          </table>
+        </div>
       </section>
     </main>
   </div>
@@ -45,15 +73,23 @@
 <script src="../js/data.js"></script>
 <script src="../js/app.js"></script>
 <script>
+  const user = DATA.user;
   document.getElementById('private').innerHTML = `${icon('shield', 30)}
     <h3>Your profile stays private</h3>
-    <p>Only lecturers you approve, or those receiving a letter request from you, can see the selected sections.</p>`;
+    <p>Only lecturers you approve, or those receiving a letter request from you, can see the selected sections. Other students can never see your grades or achievements.</p>
+    <p style="margin-top:12px">Disciplinary and other sensitive personal records are not stored in this portal.</p>`;
   document.getElementById('grant').innerHTML = icon('plus', 18) + ' Grant access';
-  document.getElementById('grant').onclick = () => toast('The Grant access form is a later screen.');
 
-  document.querySelectorAll('[data-sec]').forEach(cb => cb.addEventListener('change', () =>
-    toast(cb.dataset.sec + (cb.checked ? ' is now visible to approved lecturers.' : ' is now hidden from lecturers.'))));
+  // --- visibility (kept for the session so lecturers only see what is switched on) ---
+  document.querySelectorAll('[data-sec]').forEach(cb => {
+    cb.checked = !!DATA.visibility[cb.dataset.sec];
+    cb.addEventListener('change', () => {
+      DATA.visibility[cb.dataset.sec] = cb.checked; saveState();
+      toast(cb.dataset.sec + (cb.checked ? ' is now visible to approved lecturers.' : ' is now hidden from lecturers.'));
+    });
+  });
 
+  // --- lecturer access ---
   function renderAccess() {
     const box = document.getElementById('access');
     if (!DATA.access.length) {
@@ -62,21 +98,97 @@
     }
     box.innerHTML = DATA.access.map((p, i) => `
       <div class="access-row">
-        <div class="access-person"><div class="avatar sm">${p.initials}</div><div><strong>${p.name}</strong><span>${p.dept}</span></div></div>
-        <div style="font-size:13px;color:#374151">${p.sections}</div>
-        <div class="expires">${icon('calendar', 18)} Expires ${p.expires}</div>
+        <div class="access-person"><div class="avatar sm">${p.initials}</div><div><strong>${esc(p.name)}</strong><span>${esc(p.dept)}</span></div></div>
+        <div style="font-size:13px;color:#374151">${esc(p.sections.join(', '))}<div style="font-size:12px;color:var(--muted);margin-top:3px">For: ${esc(p.purpose || 'Not stated')}</div></div>
+        <div class="expires">${icon('calendar', 18)} Expires ${p.expiresISO ? fmtDate(p.expiresISO) : p.expires}</div>
         <button class="btn secondary" data-revoke="${i}">Revoke</button>
       </div>`).join('');
     document.querySelectorAll('[data-revoke]').forEach(b => b.onclick = () => {
       const p = DATA.access[b.dataset.revoke];
       openModal({
-        title: 'Revoke access?',
-        body: `${p.name} will no longer be able to view your profile.`,
-        actions: [{ label: 'Cancel', secondary: true }, { label: 'Revoke access', onClick: () => { DATA.access.splice(b.dataset.revoke, 1); renderAccess(); toast('Access revoked.'); } }]
+        title: 'Revoke access?', body: `${esc(p.name)} will no longer be able to view your profile.`,
+        actions: [{ label: 'Cancel', secondary: true }, { label: 'Revoke access', onClick: () => {
+          DATA.access.splice(b.dataset.revoke, 1);
+          notify(['Lecturer'], 'bell', 'grey', 'Profile access ended', user.name + ' ended your access to their profile.');
+          logAudit('Access revoked', p.name, 'Revoked by ' + user.name);
+          saveState(); renderAccess(); toast('Access revoked.');
+        } }]
       });
     });
   }
-  renderAccess();
+
+  document.getElementById('grant').onclick = () => openModal({
+    wide: true, title: 'Grant access',
+    body: `<div class="fld"><label for="gl">Lecturer</label><select id="gl"><option value="">Choose a lecturer</option>${DATA.lecturers.map(l => `<option value="${esc(l.name)}">${esc(l.name)} · ${esc(l.dept)}</option>`).join('')}</select></div>
+           <div class="fld"><span class="lbl">What they can see</span><div class="chip-select">
+             ${['Achievements', 'Academic Record', 'Documents'].map(s => `<label class="opt"><input type="checkbox" name="gs" value="${s}" ${s !== 'Documents' ? 'checked' : ''}><span>${s}</span></label>`).join('')}</div></div>
+           <div class="fld"><label for="gp">Purpose</label><input id="gp" type="text" placeholder="For example: Scholarship support letter"></div>
+           <div class="fld" style="margin-bottom:0"><label for="ge">Access ends on</label><input id="ge" type="date" min="${todayISO()}" value="${addDays(todayISO(), 30)}">
+             <div class="hint">There is no permanent access. You can revoke it earlier at any time.</div></div>`,
+    actions: [{ label: 'Cancel', secondary: true }, { label: 'Grant access', onClick: () => {
+      const name = document.getElementById('gl').value, purpose = document.getElementById('gp').value.trim(), end = document.getElementById('ge').value;
+      const secs = [...document.querySelectorAll('[name=gs]:checked')].map(c => c.value);
+      if (!name || !purpose || !end || !secs.length) { toast('Choose a lecturer, at least one section, a purpose and an end date.'); return false; }
+      if (end < todayISO()) { toast('The end date cannot be in the past.'); return false; }
+      const l = DATA.lecturers.find(x => x.name === name);
+      const entry = { name: name, initials: initialsOf(name), dept: l.dept, sections: secs, expires: fmtDate(end), expiresISO: end, purpose: purpose };
+      const at = DATA.access.findIndex(a => a.name === name);
+      if (at > -1) DATA.access[at] = entry; else DATA.access.push(entry);
+      DATA.accessLog.unshift({ ts: todayISO() + 'T' + pad2(new Date().getHours()) + ':' + pad2(new Date().getMinutes()), who: 'You', what: 'Granted access to ' + name, sections: secs.join(', ') });
+      notify(['Lecturer'], 'shield', 'green', 'Profile access granted', user.name + ' shared ' + secs.join(' and ').toLowerCase() + ' with you until ' + fmtDate(end) + '.');
+      logAudit('Access granted', name, secs.join(', ') + ' until ' + fmtDate(end));
+      saveState(); renderAccess(); renderHistory(); toast('Access granted to ' + name + '.');
+    } }]
+  });
+
+  // --- share link ---
+  function renderLink() {
+    const box = document.getElementById('link-box'), L = DATA.shareLink;
+    if (!L) {
+      box.innerHTML = `<div class="fld" style="margin:18px 0 14px"><label for="lexp">Link expires after</label>
+        <select id="lexp"><option value="7">7 days</option><option value="30" selected>30 days</option><option value="90">90 days</option></select>
+        <div class="hint">The link shows only the sections you have switched on above.</div></div>
+        <button class="btn" id="mk-link">${icon('link', 18)} Create link</button>`;
+      document.getElementById('mk-link').onclick = () => {
+        const rand = Math.random().toString(36).slice(2, 10);
+        DATA.shareLink = { url: 'https://portal.africau.edu/share/' + rand, expiresISO: addDays(todayISO(), +document.getElementById('lexp').value) };
+        logAudit('Link created', 'Share link', 'Expires ' + fmtDate(DATA.shareLink.expiresISO));
+        saveState(); renderLink(); toast('Share link created.');
+      };
+      return;
+    }
+    box.innerHTML = `<div class="link-box">${icon('link', 18)} <span style="flex:1">${esc(L.url)}</span></div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Expires ${fmtDate(L.expiresISO)}</div>
+      <div style="display:flex;gap:10px"><button class="btn secondary small" id="cp">${icon('copy', 16)} Copy link</button>
+      <button class="btn secondary small danger" id="cx">Cancel link</button></div>`;
+    document.getElementById('cp').onclick = () => {
+      if (navigator.clipboard) navigator.clipboard.writeText(L.url).then(() => toast('Link copied.'), () => toast('Copy this link: ' + L.url));
+      else toast('Copy this link: ' + L.url);
+    };
+    document.getElementById('cx').onclick = () => openModal({
+      title: 'Cancel this link?', body: 'Anyone with the link will lose access straight away.',
+      actions: [{ label: 'Keep link', secondary: true }, { label: 'Cancel link', onClick: () => { DATA.shareLink = null; logAudit('Link cancelled', 'Share link', 'Cancelled by ' + user.name); saveState(); renderLink(); toast('Link cancelled.'); } }]
+    });
+  }
+
+  // --- access history ---
+  function renderHistory() {
+    const log = DATA.accessLog.slice().sort((a, b) => b.ts.localeCompare(a.ts));
+    document.getElementById('history').innerHTML = log.length ? log.map(h => `
+      <div class="set-row"><div><strong>${esc(h.who)} · ${esc(h.what)}</strong><span>${esc(h.sections)}</span></div>
+      <span style="white-space:nowrap">${fmtDate(h.ts.slice(0, 10), true)} · ${h.ts.slice(11)}</span></div>`).join('')
+      : '<div class="empty">Nobody has viewed your profile yet.</div>';
+  }
+
+  // --- security ---
+  const ts = document.getElementById('twostep');
+  ts.checked = DATA.security.twoStep;
+  ts.onchange = () => { DATA.security.twoStep = ts.checked; saveState(); toast('Two-step verification ' + (ts.checked ? 'is on.' : 'is off. Your account is less protected.')); };
+  const here = [{ device: 'This device', place: 'Harare, ZW', when: 'Now', result: 'Signed in' }].concat(DATA.loginHistory);
+  document.getElementById('logins').innerHTML = here.map(r => `<tr><td class="strong">${esc(r.device)}</td><td>${esc(r.place)}</td><td>${esc(r.when)}</td>
+    <td>${r.result === 'Signed in' ? pill('verified', 'Signed in') : pill('rejected', esc(r.result))}</td></tr>`).join('');
+
+  renderAccess(); renderLink(); renderHistory();
 </script>
 </body>
 </html>

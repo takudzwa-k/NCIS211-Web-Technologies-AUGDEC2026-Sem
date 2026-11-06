@@ -18,7 +18,7 @@
           <h1>Achievements</h1>
           <p>Build and manage your verified achievement record.</p>
         </div>
-        <button class="btn" id="add-btn"></button>
+        <a class="btn" id="add-btn" href="add-achievement.html"></a>
       </div>
 
       <section class="card">
@@ -27,11 +27,9 @@
           <select class="select" id="f-cat"><option value="">All categories</option></select>
           <select class="select" id="f-status">
             <option value="">All statuses</option><option value="verified">Verified</option>
-            <option value="pending">Pending</option><option value="rejected">Rejected</option>
+            <option value="pending">Pending</option><option value="rejected">Rejected</option><option value="draft">Draft</option>
           </select>
-          <select class="select" id="f-tier">
-            <option value="">All tiers</option><option>Major</option><option>Moderate</option><option>Minor</option>
-          </select>
+          <select class="select" id="f-tier"><option value="">All tiers</option><option>Major</option><option>Moderate</option><option>Minor</option></select>
           <select class="select" id="f-year"><option value="">All years</option></select>
           <button class="icon-btn" id="reset" title="Clear filters" style="border:1px solid var(--border);width:46px;height:46px;border-radius:10px"></button>
         </div>
@@ -53,33 +51,34 @@
 <script>
   const A = DATA.achievements;
   document.getElementById('add-btn').innerHTML = icon('plus', 18) + ' Add Achievement';
-  document.getElementById('add-btn').onclick = () => toast('The Add Achievement form is the next screen to build.');
   document.getElementById('search-wrap').insertAdjacentHTML('afterbegin', icon('search', 18));
   document.getElementById('reset').innerHTML = icon('sliders', 20);
 
   const fCat = document.getElementById('f-cat'), fYear = document.getElementById('f-year');
-  [...new Set(A.map(x => x.category))].sort().forEach(c => fCat.add(new Option(c, c)));
-  [...new Set(A.map(x => x.date.slice(0, 4)))].sort().reverse().forEach(y => fYear.add(new Option(y, y)));
+  DATA.categories.forEach(c => fCat.add(new Option(c, c)));
+  [...new Set(A.filter(x => x.date).map(x => x.date.slice(0, 4)))].sort().reverse().forEach(y => fYear.add(new Option(y, y)));
+
+  const catText = x => x.categories.length > 1 ? x.category + ' +' + (x.categories.length - 1) : x.category;
 
   function render() {
     const q = document.getElementById('q').value.toLowerCase().trim();
+    const st = document.getElementById('f-status').value, tr = document.getElementById('f-tier').value;
     const list = A.filter(x =>
-      (!q || x.title.toLowerCase().includes(q) || x.category.toLowerCase().includes(q)) &&
-      (!fCat.value || x.category === fCat.value) &&
-      (!document.getElementById('f-status').value || x.status === document.getElementById('f-status').value) &&
-      (!document.getElementById('f-tier').value || x.tier === document.getElementById('f-tier').value) &&
-      (!fYear.value || x.date.startsWith(fYear.value)));
+      (!q || x.title.toLowerCase().includes(q) || x.categories.join(' ').toLowerCase().includes(q)) &&
+      (!fCat.value || x.categories.includes(fCat.value)) && (!st || x.status === st) && (!tr || x.tier === tr) &&
+      (!fYear.value || (x.date || '').startsWith(fYear.value)))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     document.getElementById('count').innerHTML = `<b>${list.length}</b> achievement${list.length === 1 ? '' : 's'}`;
     document.getElementById('empty').style.display = list.length ? 'none' : 'block';
     document.getElementById('rows').innerHTML = list.map(x => `
       <tr class="clickable" data-id="${x.id}">
-        <td class="strong">${x.title}${x.status === 'rejected' ? '<button class="sub-link" data-reason="' + x.id + '">View reason</button>' : ''}</td>
-        <td>${x.category}</td>
-        <td>${fmtDate(x.date, true)}</td>
+        <td class="strong">${esc(x.title)}${x.status === 'rejected' ? '<button class="sub-link" data-reason="' + x.id + '">View reason</button>' : ''}</td>
+        <td>${esc(catText(x))}${x.preUni ? ' <span class="tier">Pre-university</span>' : ''}</td>
+        <td>${x.date ? fmtDate(x.date, true) : '—'}</td>
         <td>${x.tier ? '<span class="tier">' + x.tier + '</span>' : '—'}</td>
         <td>${pill(x.status)}</td>
-        <td><span class="file-cell">${icon('file', 18)} ${x.file}</span></td>
+        <td><span class="file-cell">${icon('file', 18)} ${esc(x.files[0] || 'No file')}</span></td>
         <td>${icon('right', 18)}</td>
       </tr>`).join('');
 
@@ -88,21 +87,52 @@
       const item = A.find(x => x.id == b.dataset.reason);
       openModal({
         title: 'Why this was rejected',
-        body: `<p style="margin-bottom:12px"><b style="color:var(--text)">${item.title}</b></p><div class="reason-box">${item.reason}</div>`,
-        actions: [{ label: 'Close', secondary: true }, { label: 'Add evidence', onClick: () => toast('Evidence upload comes with the Add Achievement screen.') }]
+        body: `<p style="margin-bottom:12px"><b style="color:var(--text)">${esc(item.title)}</b></p><div class="reason-box">${esc(item.reason || 'Evidence insufficient.')}</div>`,
+        actions: [{ label: 'Close', secondary: true }, { label: 'Edit and resubmit', onClick: () => { window.location.href = 'add-achievement.html?edit=' + item.id; } }]
       });
     });
-    document.querySelectorAll('#rows tr').forEach(tr => tr.onclick = () => {
-      const item = A.find(x => x.id == tr.dataset.id);
-      openModal({
-        title: item.title,
-        body: `<dl>
-          <dt>Category</dt><dd>${item.category}</dd>
-          <dt>Date</dt><dd>${fmtDate(item.date)}</dd>
-          <dt>Tier</dt><dd>${item.tier || '—'}</dd>
-          <dt>Status</dt><dd>${pill(item.status)}</dd>
-          <dt>Evidence</dt><dd>${item.file}</dd></dl>`
-      });
+    document.querySelectorAll('#rows tr').forEach(tr => tr.onclick = () => detail(A.find(x => x.id == tr.dataset.id)));
+  }
+
+  function changeRequest(x, kind) {
+    openModal({
+      title: kind === 'delete' ? 'Request deletion' : 'Request a change',
+      body: `<p style="margin-bottom:14px">${esc(x.title)} is verified, so changes need approval from staff. Tell them what should change and why.</p>
+             <div class="fld" style="margin-bottom:0"><label for="why">Reason</label><textarea id="why"></textarea></div>`,
+      actions: [{ label: 'Cancel', secondary: true }, { label: 'Send request', onClick: () => {
+        const why = document.getElementById('why').value.trim();
+        if (!why) { toast('Please give a reason.'); return false; }
+        x.history.push({ when: todayISO(), text: (kind === 'delete' ? 'Deletion' : 'Change') + ' requested' });
+        notify(['Admin'], 'clock', 'amber', (kind === 'delete' ? 'Deletion' : 'Change') + ' requested', DATA.user.name + ': ' + x.title + '. ' + why);
+        logAudit(kind === 'delete' ? 'Deletion requested' : 'Change requested', x.title, why);
+        saveState(); toast('Request sent to staff for approval.');
+      } }]
+    });
+  }
+
+  function detail(x) {
+    const acts = [{ label: 'Close', secondary: true }];
+    if (x.status === 'verified') {
+      acts.push({ label: 'Request deletion', secondary: true, danger: true, onClick: () => changeRequest(x, 'delete') });
+      acts.push({ label: 'Request change', onClick: () => changeRequest(x, 'change') });
+    } else {
+      acts.push({ label: x.status === 'rejected' ? 'Edit and resubmit' : 'Edit', onClick: () => { window.location.href = 'add-achievement.html?edit=' + x.id; } });
+    }
+    openModal({
+      wide: true, title: esc(x.title), actions: acts,
+      body: `<dl>
+        <dt>Categories</dt><dd>${esc(x.categories.join(', '))}</dd>
+        <dt>Date</dt><dd>${x.date ? fmtDate(x.date) : '—'}${x.preUni ? ' (before university)' : ''}</dd>
+        <dt>Level</dt><dd>${esc(x.level)}</dd>
+        <dt>Tier</dt><dd>${x.tier || 'Not graded yet'}</dd>
+        <dt>Status</dt><dd>${pill(x.status)}</dd>
+        ${x.status === 'verified' ? '<dt>Verified by</dt><dd>' + esc(x.verifiedBy) + '</dd>' : ''}
+        ${x.status === 'rejected' ? '<dt>Reason</dt><dd>' + esc(x.reason || 'Evidence insufficient.') + '</dd>' : ''}
+        <dt>Description</dt><dd>${esc(x.description)}</dd>
+        <dt>Evidence</dt><dd>${x.files.length ? x.files.map(f => '<div class="file-line">' + icon('file', 16) + esc(f) + '</div>').join('') : 'No file attached'}</dd>
+      </dl>
+      <div style="margin-top:18px;font-weight:600;color:var(--text)">History</div>
+      <ul class="history">${x.history.map(h => '<li>' + esc(h.text) + '<span class="when">' + fmtDate(h.when) + '</span></li>').join('')}</ul>`
     });
   }
 

@@ -59,7 +59,7 @@
     <tr><td class="strong">${c.code}</td><td class="strong">${c.name}</td><td>${c.credits}</td><td>${c.grade}</td><td>${c.sem}</td></tr>`).join('');
 
   document.getElementById('transcript').innerHTML = icon('upload', 18) + ' Upload official transcript';
-  document.getElementById('transcript').onclick = () => toast('Transcript upload will be added with the document upload flow.');
+  document.getElementById('transcript').onclick = () => openUploadDialog({ preset: '__transcript' });
   document.getElementById('report').onclick = () => openModal({
     title: 'Report an error',
     body: 'If a grade, credit or GPA looks wrong, an administrator will check it against the registry. You cannot change these figures yourself.',

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Add Achievement · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="achievements">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <a class="back-link" id="back" href="achievements.html"></a>
+          <h1 id="ttl">Add Achievement</h1>
+          <p id="sub"></p>
+        </div>
+      </div>
+
+      <div class="form-layout">
+        <section class="card form-card">
+          <div id="student-field"></div>
+
+          <div class="fld" id="g-title">
+            <label for="title">Title</label>
+            <input id="title" type="text" placeholder="For example: Dean’s List — Semester 2" maxlength="120">
+            <div class="msg">Enter a title for this achievement.</div>
+          </div>
+
+          <div class="fld" id="g-cats">
+            <span class="lbl">Categories <span class="opt-note">(choose all that apply)</span></span>
+            <div class="chip-select" id="cats"></div>
+            <div class="msg">Choose at least one category.</div>
+          </div>
+
+          <div class="form-grid">
+            <div class="fld" id="g-date">
+              <label for="date">Date</label>
+              <input id="date" type="date">
+              <div class="msg" id="m-date">Enter the date this happened.</div>
+            </div>
+            <div class="fld" id="g-level">
+              <label for="level">Level</label>
+              <select id="level"><option value="">Choose a level</option><option>Local</option><option>National</option><option>International</option></select>
+              <div class="msg">Choose a level.</div>
+            </div>
+          </div>
+
+          <div class="fld">
+            <label for="role">Role or responsibility <span class="opt-note">(optional)</span></label>
+            <input id="role" type="text" placeholder="For example: Team lead">
+          </div>
+
+          <div class="fld" id="g-desc">
+            <label for="desc">Description</label>
+            <textarea id="desc" placeholder="What did you do, and what was the result?"></textarea>
+            <div class="msg">Add a short description (at least 10 characters).</div>
+          </div>
+
+          <div id="student-only">
+            <div class="fld">
+              <label class="check-line"><input type="checkbox" id="pre"> This happened before I joined the university</label>
+              <div class="hint">Pre-university achievements are kept in their own category.</div>
+            </div>
+            <div class="fld" id="g-verifier">
+              <label for="verifier">Send to for verification</label>
+              <select id="verifier"></select>
+              <div class="hint">Pick the office or person who knows this achievement best.</div>
+              <div class="msg">Choose who should verify this.</div>
+            </div>
+          </div>
+
+          <div id="lecturer-only" style="display:none">
+            <div class="fld">
+              <label for="tier">Tier</label>
+              <select id="tier"><option>Major</option><option selected>Moderate</option><option>Minor</option></select>
+              <div class="hint">Based on recognition, competitiveness, impact and level. Used for reporting only.</div>
+            </div>
+          </div>
+
+          <div class="fld" id="g-files">
+            <span class="lbl">Evidence <span class="opt-note" id="ev-note"></span></span>
+            <div class="dropzone" id="drop" tabindex="0" role="button" aria-label="Choose evidence files">
+              <div id="drop-ic"></div>
+              <strong>Drop files here or click to choose</strong>
+              PDF, JPG or PNG, up to 5 MB each
+            </div>
+            <input id="file" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none">
+            <div class="file-rows" id="file-rows"></div>
+            <div class="msg" id="m-files">Evidence is needed for this kind of achievement.</div>
+          </div>
+
+          <div class="form-actions">
+            <a class="btn secondary" id="cancel" href="achievements.html">Cancel</a>
+            <button class="btn secondary" id="save-draft" type="button">Save draft</button>
+            <button class="btn" id="submit" type="button"></button>
+          </div>
+        </section>
+
+        <aside class="card private-card">
+          <div id="tip-ic"></div>
+          <h3>Before you submit</h3>
+          <ul class="tips">
+            <li>Nothing counts until it is verified. You will see Pending, Verified or Rejected, and a reason if it is rejected.</li>
+            <li>Some categories, such as certifications and academic awards, need evidence. Others can be added without it.</li>
+            <li>You can edit an item while it is pending. Changes to verified items need staff approval.</li>
+            <li>You can add achievements from your first year onward, using the real date.</li>
+            <li>Please do not add sensitive personal information to your achievements.</li>
+          </ul>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  document.body.dataset.page = CURRENT_ROLE === 'Lecturer' ? 'lecturerLetters' : 'achievements';
+
+  const lect = CURRENT_ROLE === 'Lecturer';
+  const user = DATA.user;
+  const editId = Number(new URLSearchParams(location.search).get('edit')) || 0;
+  const editing = (!lect && editId) ? DATA.achievements.find(a => a.id === editId) : null;
+  let files = [];   // {name, size}
+
+  if (editing && editing.status === 'verified') { flash('Verified achievements cannot be edited. Use "Request change" instead.'); window.location.replace('achievements.html'); }
+
+  // --- page text for each role ---
+  document.getElementById('back').innerHTML = icon('back', 16) + (lect ? ' Letter Requests' : ' Achievements');
+  document.getElementById('back').href = lect ? 'lecturer-letters.html' : 'achievements.html';
+  document.getElementById('cancel').href = lect ? 'lecturer-letters.html' : 'achievements.html';
+  document.getElementById('tip-ic').innerHTML = icon('shield', 30).replace('class="ic"', 'class="ic big"');
+  document.getElementById('drop-ic').innerHTML = icon('upload', 26);
+  document.getElementById('ttl').textContent = lect ? 'Add achievement for student' : (editing ? 'Edit achievement' : 'Add Achievement');
+  document.getElementById('sub').textContent = lect
+    ? 'Record an achievement you can confirm yourself. It is saved as verified by you.'
+    : 'Record something you achieved and send it for verification.';
+  document.getElementById('submit').innerHTML = lect ? 'Add and verify' : 'Submit for verification';
+  document.getElementById('student-only').style.display = lect ? 'none' : '';
+  document.getElementById('lecturer-only').style.display = lect ? '' : 'none';
+  document.getElementById('save-draft').style.display = lect ? 'none' : '';
+
+  if (lect) {
+    document.getElementById('student-field').innerHTML = `
+      <div class="fld" id="g-student"><label for="student">Student</label>
+        <select id="student"><option value="">Choose a student</option>${DATA.sharedStudents.map(s => `<option value="${s.id}">${esc(s.name)} · ${s.id}</option>`).join('')}</select>
+        <div class="msg">Choose a student.</div></div>`;
+  }
+
+  // --- categories ---
+  document.getElementById('cats').innerHTML = DATA.categories.map((c, i) =>
+    `<label class="opt"><input type="checkbox" name="cat" value="${esc(c)}"><span>${esc(c)}</span></label>`).join('');
+  const checkedCats = () => [...document.querySelectorAll('[name=cat]:checked')].map(c => c.value);
+
+  // --- verifier options ---
+  document.getElementById('verifier').innerHTML = '<option value="">Choose who verifies this</option>' +
+    DATA.verifiers.map(v => `<option>${v}</option>`).join('');
+
+  // --- date limits ---
+  const dateEl = document.getElementById('date'), pre = document.getElementById('pre');
+  function dateBounds() {
+    dateEl.max = todayISO();
+    dateEl.min = (lect || pre.checked) ? '' : (user.entry + '-01-01');
+  }
+  pre.addEventListener('change', dateBounds); dateBounds();
+
+  // --- evidence hint ---
+  function needsEvidence() { return !lect && checkedCats().some(c => DATA.evidenceRequired.includes(c)); }
+  function evidenceNote() {
+    document.getElementById('ev-note').textContent = needsEvidence() ? '(required for the categories you chose)' : '(add it if you have it)';
+  }
+  document.getElementById('cats').addEventListener('change', evidenceNote); evidenceNote();
+
+  // --- files ---
+  function renderFiles() {
+    document.getElementById('file-rows').innerHTML = files.map((f, i) => `
+      <div class="file-row">${icon('file', 18)} ${esc(f.name)} <span class="sz">${f.size}</span>
+        <button class="icon-btn" data-rm="${i}" aria-label="Remove ${esc(f.name)}" type="button">${icon('x', 16)}</button></div>`).join('');
+    document.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { files.splice(+b.dataset.rm, 1); renderFiles(); });
+  }
+  function addFiles(list) {
+    [...list].forEach(f => {
+      if (!/\.(pdf|jpe?g|png)$/i.test(f.name)) { toast(f.name + ' is not a PDF, JPG or PNG.'); return; }
+      if (f.size > 5 * 1024 * 1024) { toast(f.name + ' is larger than 5 MB.'); return; }
+      if (files.some(x => x.name === f.name)) return;
+      files.push({ name: f.name, size: fileSize(f.size), file: f });
+    });
+    renderFiles();
+  }
+  const drop = document.getElementById('drop'), fileInput = document.getElementById('file');
+  drop.onclick = () => fileInput.click();
+  drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } };
+  fileInput.onchange = () => { addFiles(fileInput.files); fileInput.value = ''; };
+  ['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+
+  // --- fill in when editing ---
+  if (editing) {
+    document.getElementById('title').value = editing.title;
+    editing.categories.forEach(c => { const el = document.querySelector('[name=cat][value="' + c.replace(/"/g, '\\"') + '"]'); if (el) el.checked = true; });
+    pre.checked = !!editing.preUni; dateBounds();
+    dateEl.value = editing.date || '';
+    document.getElementById('level').value = editing.level;
+    document.getElementById('role').value = editing.role || '';
+    document.getElementById('desc').value = editing.description === 'Added from the university record.' ? '' : editing.description;
+    document.getElementById('verifier').value = editing.verifier || '';
+    files = editing.files.map(n => ({ name: n, size: 'Attached' })); renderFiles(); evidenceNote();
+  }
+
+  // --- validation ---
+  function check(draft) {
+    let ok = true, first = null;
+    const flag = (id, bad) => { document.getElementById(id).classList.toggle('err', bad); if (bad) { ok = false; if (!first) first = id; } };
+    const title = document.getElementById('title').value.trim();
+    flag('g-title', !title);
+    if (draft) { ['g-cats', 'g-date', 'g-level', 'g-desc', 'g-verifier', 'g-files', 'g-student'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('err'); }); }
+    else {
+      flag('g-cats', checkedCats().length === 0);
+      const d = dateEl.value; let dmsg = 'Enter the date this happened.', dbad = !d;
+      if (d && d > todayISO()) { dbad = true; dmsg = 'The date cannot be in the future.'; }
+      else if (d && dateEl.min && d < dateEl.min) { dbad = true; dmsg = 'Dates start from your first year (' + user.entry + '). Tick "before I joined" for earlier achievements.'; }
+      document.getElementById('m-date').textContent = dmsg; flag('g-date', dbad);
+      flag('g-level', !document.getElementById('level').value);
+      flag('g-desc', document.getElementById('desc').value.trim().length < 10);
+      if (!lect) flag('g-verifier', !document.getElementById('verifier').value);
+      if (lect) flag('g-student', !document.getElementById('student').value);
+      flag('g-files', needsEvidence() && files.length === 0);
+    }
+    if (!ok) { const el = document.getElementById(first); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast(draft ? 'Add a title to save a draft.' : 'Some required information is missing. Check the highlighted fields.'); }
+    return ok;
+  }
+
+  function values() {
+    const cats = checkedCats();
+    return { title: document.getElementById('title').value.trim(), categories: cats, category: cats[0] || 'Uncategorised', date: dateEl.value,
+             level: document.getElementById('level').value || 'Local', role: document.getElementById('role').value.trim(),
+             description: document.getElementById('desc').value.trim() || 'No description yet.', preUni: pre.checked,
+             files: files.map(f => f.name) };
+  }
+
+  // --- saving ---
+  function saveStudent(asDraft) {
+    const v = values(); v.file = v.files[0] || '—'; v.verifier = document.getElementById('verifier').value;
+    let a = editing, wasRejected = false;
+    if (a) { wasRejected = a.status === 'rejected'; Object.assign(a, v); }
+    else { a = Object.assign({ id: nextId(DATA.achievements), tier: '', status: 'draft', submitted: todayISO(), history: [] }, v); DATA.achievements.push(a); }
+
+    if (asDraft) {
+      a.status = 'draft'; a.history.push({ when: todayISO(), text: 'Saved as draft' });
+      saveState(); flash('Draft saved.'); window.location.href = 'achievements.html'; return;
+    }
+    a.status = 'pending'; a.submitted = todayISO();
+    a.history.push({ when: todayISO(), text: (wasRejected ? 'Resubmitted' : 'Submitted') + ' for verification to ' + a.verifier });
+
+    // goes into the staff queue
+    let q = DATA.adminQueue.find(x => x.achId === a.id);
+    const entry = { achId: a.id, student: user.name, sid: user.studentId, title: a.title, category: a.category, date: todayISO(), files: a.files.length ? a.files : ['(no file)'], status: 'pending', verifier: a.verifier };
+    if (q) Object.assign(q, entry); else DATA.adminQueue.push(Object.assign({ id: nextId(DATA.adminQueue) }, entry));
+
+    // evidence shows up under Documents
+    const puts = [];
+    a.files.forEach((n, i) => {
+      if (DATA.documents.some(d => d.name === n && d.linked === a.title)) return;
+      const f = files.find(x => x.name === n), id = 'F' + Date.now() + '_' + i;
+      DATA.documents.push({ id: f && f.file ? id : undefined, name: n, linked: a.title, type: fileExt(n), date: todayISO(), status: 'pending', size: f ? f.size : '' });
+      if (f && f.file) puts.push(fileStore.put(id, f.file));
+    });
+
+    notify(['Admin'], 'clock', 'amber', 'New achievement to review', user.name + ': ' + a.title + ' (sent to ' + a.verifier + ')');
+    notify([CURRENT_ROLE], 'check', 'green', 'Submitted for review', a.title + ' was sent to ' + a.verifier + '. You will be told when it is verified.');
+    logAudit(wasRejected ? 'Resubmitted' : 'Created', a.title, 'Submitted for review');
+    Promise.all(puts).then(() => { saveState(); flash('Submitted. You will be notified when it is verified.'); window.location.href = 'achievements.html'; });
+  }
+
+  function saveLecturer() {
+    const v = values(); const sid = document.getElementById('student').value;
+    const st = DATA.sharedStudents.find(s => s.id === sid);
+    const tier = document.getElementById('tier').value, by = user.name;
+    const rec = Object.assign({}, v, { tier: tier, status: 'verified', verifiedBy: by, submitted: todayISO(), file: v.files[0] || '—',
+                                       history: [{ when: todayISO(), text: 'Added and verified by ' + by }] });
+    if (st.live) { rec.id = nextId(DATA.achievements); DATA.achievements.push(rec); }
+    else { rec.id = nextId(st.profile.achievements) + 300; st.profile.achievements.push({ id: rec.id, title: rec.title, category: rec.category, date: rec.date, tier: tier, status: 'verified', verifiedBy: by }); }
+    notify(['Student', 'Alumni'], 'check', 'green', 'Achievement added by ' + by, rec.title + ' was added to your profile and verified.');
+    logAudit('Verified', rec.title, 'Added for ' + st.name + ', tier ' + tier);
+    saveState(); flash(rec.title + ' added to ' + st.name + '’s profile as verified.'); window.location.href = 'lecturer-letters.html';
+  }
+
+  // --- possible duplicates ---
+  function findDuplicate() {
+    const v = values();
+    return DATA.achievements.find(a => (!editing || a.id !== editing.id) && a.status !== 'draft' &&
+      (a.title.toLowerCase() === v.title.toLowerCase() || (a.date && a.date === v.date && a.categories.some(c => v.categories.includes(c)))));
+  }
+
+  document.getElementById('save-draft').onclick = () => { if (check(true)) saveStudent(true); };
+  document.getElementById('submit').onclick = () => {
+    if (!check(false)) return;
+    if (lect) { saveLecturer(); return; }
+    const dup = findDuplicate();
+    if (dup) {
+      openModal({ title: 'This looks like an existing entry',
+        body: `<p>You already have <b style="color:var(--text)">${esc(dup.title)}</b> (${esc(dup.category)}, ${fmtDate(dup.date)}). Check that you are not adding the same achievement twice.</p>`,
+        actions: [{ label: 'Review my entry', secondary: true }, { label: 'Submit anyway', onClick: () => saveStudent(false) }] });
+      return;
+    }
+    saveStudent(false);
+  };
+</script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New request · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="letters">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <a class="back-link" id="back" href="letter-requests.html"></a>
+          <h1>New letter request</h1>
+          <p>Ask a lecturer for a letter. They will see only the achievements you choose, until the deadline.</p>
+        </div>
+      </div>
+
+      <div class="form-layout">
+        <section class="card form-card">
+          <div class="fld" id="g-type">
+            <label for="type">Letter type</label>
+            <select id="type"></select>
+            <div class="msg">Choose a letter type.</div>
+          </div>
+
+          <div class="fld" id="g-lect">
+            <label for="lect">Lecturer</label>
+            <select id="lect"></select>
+            <div class="msg">Choose a lecturer.</div>
+          </div>
+          <div class="fld" id="official-note" style="display:none">
+            <div class="reason-box">This letter is issued by the Academic Records Office, not by a lecturer. Who issues attachment and admission letters is still to be confirmed with the university.</div>
+          </div>
+
+          <div class="fld" id="g-purpose">
+            <label for="purpose">Purpose</label>
+            <input id="purpose" type="text" placeholder="For example: Merit scholarship application">
+            <div class="msg">Say what the letter is for.</div>
+          </div>
+
+          <div class="fld" id="g-deadline">
+            <label for="deadline">Deadline</label>
+            <input id="deadline" type="date">
+            <div class="msg" id="m-deadline">Choose a deadline.</div>
+          </div>
+
+          <div class="fld">
+            <label for="points">Key points <span class="opt-note">(optional)</span></label>
+            <textarea id="points" placeholder="Anything you would like the lecturer to mention. The lecturer stays the author of the letter."></textarea>
+          </div>
+
+          <div class="fld" id="g-ach">
+            <span class="lbl">Achievements to include <span class="opt-note">(verified only)</span></span>
+            <div id="ach-list"></div>
+            <div class="msg">Choose at least one achievement for the lecturer to see.</div>
+          </div>
+
+          <div class="form-actions">
+            <a class="btn secondary" href="letter-requests.html">Cancel</a>
+            <button class="btn" id="send" type="button">Send request</button>
+          </div>
+        </section>
+
+        <aside class="card private-card">
+          <div id="tip-ic"></div>
+          <h3>What the lecturer sees</h3>
+          <p id="access-note"></p>
+          <ul class="tips">
+            <li>Only the achievements you tick, not your whole profile.</li>
+            <li>Access ends on the deadline. You can also revoke it any time under Sharing &amp; Privacy.</li>
+            <li>You will get a notification when the lecturer accepts, and when the letter is done.</li>
+          </ul>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  const user = DATA.user;
+  document.getElementById('back').innerHTML = icon('back', 16) + ' Letter Requests';
+  document.getElementById('tip-ic').innerHTML = icon('shield', 30).replace('class="ic"', 'class="ic big"');
+
+  document.getElementById('type').innerHTML = '<option value="">Choose a letter type</option>' +
+    '<optgroup label="Written by a lecturer">' + DATA.letterTypes.map(t => `<option>${t}</option>`).join('') + '</optgroup>' +
+    '<optgroup label="Official letters (Records Office)">' + DATA.officialLetters.map(t => `<option>${t}</option>`).join('') + '</optgroup>';
+  document.getElementById('lect').innerHTML = '<option value="">Choose a lecturer</option>' +
+    DATA.lecturers.map(l => `<option value="${esc(l.name)}">${esc(l.name)} · ${esc(l.dept)}</option>`).join('');
+
+  const deadline = document.getElementById('deadline');
+  deadline.min = todayISO();
+
+  const verified = DATA.achievements.filter(a => a.status === 'verified').sort((a, b) => b.date.localeCompare(a.date));
+  document.getElementById('ach-list').innerHTML = verified.map(a => `
+    <label class="ach-item" style="cursor:pointer"><input type="checkbox" name="ach" value="${a.id}">
+      <div><strong>${esc(a.title)}</strong><div class="sub2">${esc(a.category)} · ${fmtDate(a.date)}${a.tier ? ' · ' + a.tier : ''}</div></div></label>`).join('')
+    || '<div class="empty">You have no verified achievements yet.</div>';
+
+  const isOfficial = () => DATA.officialLetters.includes(document.getElementById('type').value);
+  function refresh() {
+    const off = isOfficial();
+    document.getElementById('g-lect').style.display = off ? 'none' : '';
+    document.getElementById('g-ach').style.display = off ? 'none' : '';
+    document.getElementById('official-note').style.display = off ? '' : 'none';
+    const lname = document.getElementById('lect').value;
+    document.getElementById('access-note').textContent = off
+      ? 'The Records Office will use your official university record. No achievements are shared.'
+      : (lname ? lname + ' will be able to view the achievements you choose' : 'The lecturer will be able to view the achievements you choose')
+        + (deadline.value ? ', until ' + fmtDate(deadline.value) + '.' : ', until the deadline.');
+  }
+  ['type', 'lect', 'deadline'].forEach(id => document.getElementById(id).addEventListener('input', refresh));
+  refresh();
+
+  document.getElementById('send').onclick = () => {
+    const off = isOfficial();
+    let ok = true, first = null;
+    const flag = (id, bad) => { document.getElementById(id).classList.toggle('err', bad); if (bad) { ok = false; if (!first) first = id; } };
+    const type = document.getElementById('type').value, lect = document.getElementById('lect').value;
+    const purpose = document.getElementById('purpose').value.trim(), dl = deadline.value;
+    const ids = [...document.querySelectorAll('[name=ach]:checked')].map(c => +c.value);
+    flag('g-type', !type);
+    flag('g-lect', !off && !lect);
+    flag('g-purpose', !purpose);
+    document.getElementById('m-deadline').textContent = dl && dl < todayISO() ? 'The deadline cannot be in the past.' : 'Choose a deadline.';
+    flag('g-deadline', !dl || dl < todayISO());
+    flag('g-ach', !off && ids.length === 0);
+    if (!ok) { document.getElementById(first).scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('Some required information is missing. Check the highlighted fields.'); return; }
+
+    const points = document.getElementById('points').value.trim();
+    const stamp = Date.now();
+    const letter = { id: 'L' + stamp, lecturer: off ? 'Academic Records Office' : lect, type: type, deadline: dl, status: 'sent', label: 'Sent', purpose: purpose, keyPoints: points };
+    DATA.letters.unshift(letter);
+
+    if (off) {
+      notify(['Admin'], 'inbox', 'amber', 'Official letter requested', user.name + ' asked for an ' + type.toLowerCase() + ' for ' + purpose + '.');
+    } else {
+      DATA.lecturerRequests.push({ id: 'R' + stamp, student: user.name, sid: user.studentId, letterId: letter.id, type: type, deadline: dl,
+                                   status: 'sent', purpose: purpose, achievementIds: ids, keyPoints: points });
+      if (!DATA.access.some(a => a.name === lect)) {
+        const l = DATA.lecturers.find(x => x.name === lect);
+        DATA.access.push({ name: lect, initials: initialsOf(lect), dept: l ? l.dept : '', sections: ['Selected achievements'],
+                           expires: fmtDate(dl), expiresISO: dl, purpose: type + ' letter' });
+        DATA.accessLog.unshift({ ts: todayISO() + 'T' + pad2(new Date().getHours()) + ':' + pad2(new Date().getMinutes()), who: 'You', what: 'Shared with ' + lect, sections: 'Selected achievements' });
+      }
+      notify(['Lecturer'], 'inbox', 'amber', 'New letter request', user.name + ' asked for a ' + type.toLowerCase() + ' letter (due ' + fmtDate(dl) + ').');
+    }
+    notify([CURRENT_ROLE], 'check', 'green', 'Letter request sent', 'Your ' + type.toLowerCase() + ' request was sent' + (off ? ' to the Records Office.' : ' to ' + lect + '.'));
+    logAudit('Created', type + ' letter request', purpose);
+    saveState(); flash('Request sent. You will be notified when it is accepted.'); window.location.href = 'letter-requests.html';
+  };
+</script>
+</body>
+</html>

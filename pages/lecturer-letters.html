@@ -18,8 +18,10 @@
           <h1>Letter Requests</h1>
           <p>Review and manage requests from students and alumni.</p>
         </div>
-        <button class="btn secondary" id="add-btn"></button>
+        <a class="btn secondary" id="add-btn" href="add-achievement.html"></a>
       </div>
+
+      <div class="reminder" id="reminder" style="display:none"></div>
 
       <section class="card">
         <div class="toolbar">
@@ -51,15 +53,26 @@
   const PILL = { sent: 'progress', accepted: 'progress', progress: 'progress', completed: 'completed', declined: 'declined' };
 
   document.getElementById('add-btn').innerHTML = icon('plus', 18) + ' Add achievement for student';
-  document.getElementById('add-btn').onclick = () => toast('The Add achievement for student form is a later screen.');
   document.getElementById('search-wrap').insertAdjacentHTML('afterbegin', icon('search', 18));
 
+  // keep the student's own list in step with what the lecturer does
+  function syncStudent(r, status, label) {
+    const l = DATA.letters.find(x => x.id === r.letterId);
+    if (l) { l.status = status; l.label = label; }
+  }
+  function setStatus(r, status, title, desc) {
+    r.status = status; syncStudent(r, status, LABEL[status]);
+    notify(['Student', 'Alumni'], status === 'declined' ? 'x' : 'check', status === 'declined' ? 'red' : 'green', title, desc);
+    logAudit(LABEL[status], r.type + ' letter', r.student);
+    saveState(); render();
+  }
+
   function actions(r, i) {
-    if (r.status === 'sent') return `<div class="row-actions">
-      <button class="btn-outline" data-act="accept" data-i="${i}">Accept</button>
+    const open = `<a class="btn-ghost" href="student-profile.html?id=${encodeURIComponent(r.sid)}&req=${r.id}">Open profile</a>`;
+    if (r.status === 'sent') return `<div class="row-actions"><button class="btn-outline" data-act="accept" data-i="${i}">Accept</button>
       <button class="btn-ghost" data-act="decline" data-i="${i}">Decline</button></div>`;
-    if (r.status === 'progress') return `<div class="row-actions">
-      <button class="btn-outline" data-act="complete" data-i="${i}">Mark completed</button></div>`;
+    if (r.status === 'accepted') return `<div class="row-actions"><button class="btn-outline" data-act="start" data-i="${i}">Start letter</button>${open}</div>`;
+    if (r.status === 'progress') return `<div class="row-actions"><button class="btn-outline" data-act="complete" data-i="${i}">Mark completed</button>${open}</div>`;
     return `<div class="row-actions"><button class="icon-btn" data-act="more" data-i="${i}" aria-label="Request details">${icon('more', 20)}</button></div>`;
   }
 
@@ -71,26 +84,31 @@
     document.getElementById('empty').style.display = rows.length ? 'none' : 'block';
     document.getElementById('rows').innerHTML = rows.map(x => `
       <tr>
-        <td class="strong">${x.r.student}</td>
-        <td>${x.r.type}</td>
+        <td class="strong">${esc(x.r.student)}</td>
+        <td>${esc(x.r.type)}</td>
         <td>${fmtDate(x.r.deadline, true)}</td>
         <td>${pill(PILL[x.r.status], LABEL[x.r.status])}</td>
         <td>${actions(x.r, x.i)}</td>
       </tr>`).join('');
 
+    const open = R.filter(r => r.status === 'sent' || r.status === 'accepted' || r.status === 'progress').length;
+    const rem = document.getElementById('reminder');
+    rem.style.display = open ? '' : 'none';
+    rem.innerHTML = icon('clock', 20) + ' You have ' + open + ' open letter request' + (open === 1 ? '' : 's') + '. Automatic reminders are sent before each deadline.';
+
     document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
       const r = R[b.dataset.i], act = b.dataset.act;
-      if (act === 'accept')   { r.status = 'accepted';  render(); toast('Request accepted. ' + r.student + ' has been notified.'); }
-      if (act === 'complete') { r.status = 'completed'; render(); toast('Marked as completed.'); }
+      if (act === 'accept')   setStatus(r, 'accepted', 'Letter request accepted', lecturerName() + ' accepted your ' + r.type.toLowerCase() + ' letter request.');
+      if (act === 'start')    { r.status = 'progress'; syncStudent(r, 'progress', 'In progress'); saveState(); window.location.href = 'student-profile.html?id=' + encodeURIComponent(r.sid) + '&req=' + r.id; }
+      if (act === 'complete') setStatus(r, 'completed', 'Letter completed', 'Your ' + r.type.toLowerCase() + ' letter from ' + lecturerName() + ' is ready.');
       if (act === 'decline')  openModal({
-        title: 'Decline this request?',
-        body: r.student + ' will be told that you cannot write this letter.',
-        actions: [{ label: 'Cancel', secondary: true }, { label: 'Decline request', onClick: () => { r.status = 'declined'; render(); toast('Request declined.'); } }]
+        title: 'Decline this request?', body: r.student + ' will be told that you cannot write this letter.',
+        actions: [{ label: 'Cancel', secondary: true }, { label: 'Decline request', onClick: () => setStatus(r, 'declined', 'Letter request declined', lecturerName() + ' could not take your ' + r.type.toLowerCase() + ' letter request.') }]
       });
       if (act === 'more') openModal({
         title: 'Request details',
-        body: `<dl><dt>Student</dt><dd>${r.student}</dd><dt>Letter type</dt><dd>${r.type}</dd>
-               <dt>Purpose</dt><dd>${r.purpose}</dd><dt>Deadline</dt><dd>${fmtDate(r.deadline)}</dd>
+        body: `<dl><dt>Student</dt><dd>${esc(r.student)}</dd><dt>Letter type</dt><dd>${esc(r.type)}</dd>
+               <dt>Purpose</dt><dd>${esc(r.purpose)}</dd><dt>Deadline</dt><dd>${fmtDate(r.deadline)}</dd>
                <dt>Status</dt><dd>${pill(PILL[r.status], LABEL[r.status])}</dd></dl>`
       });
     });

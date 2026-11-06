@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Student profile · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="find">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <a class="back-link" href="find-students.html" id="back"></a>
+      <div id="root"></div>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  document.getElementById('back').innerHTML = icon('back', 16) + ' Find Students';
+  const params = new URLSearchParams(location.search);
+  const sid = params.get('id'), reqId = params.get('req');
+  const student = DATA.sharedStudents.find(s => s.id === sid);
+  const root = document.getElementById('root');
+  const lec = DATA.lecturers.find(l => l.name === lecturerName());
+
+  if (!student) { flash('That student could not be found.'); window.location.replace('find-students.html'); }
+
+  // --- what this lecturer is allowed to see ---
+  let sections = [], until = '', limitedToRequest = false;
+  if (student && student.live) {
+    const a = DATA.access.find(x => x.name === lecturerName());
+    if (a) {
+      until = a.expiresISO;
+      sections = a.sections.filter(x => x === 'Selected achievements' || DATA.visibility[x]);
+      if (a.sections.includes('Selected achievements')) limitedToRequest = true;
+    }
+  } else if (student) { sections = student.access.slice(); until = student.until; }
+  const allowed = !!student && (student.live ? !!DATA.access.find(x => x.name === lecturerName()) : true);
+
+  if (student && !allowed) {
+    root.innerHTML = `<section class="card empty-card"><div><div class="big-icon" id="lk"></div>
+      <p>${esc(student.name)} has ended your access to their profile.</p>
+      <a class="btn secondary" href="find-students.html">Back to Find Students</a></div></section>`;
+    document.getElementById('lk').innerHTML = icon('lock', 28);
+  } else if (student) {
+    const canAch = sections.includes('Achievements') || sections.includes('Selected achievements');
+    const canAcad = sections.includes('Academic Record');
+    const canDocs = sections.includes('Documents');
+    const req = (reqId && DATA.lecturerRequests.find(r => r.id === reqId && r.sid === sid)) ||
+                DATA.lecturerRequests.find(r => r.sid === sid && ['sent', 'accepted', 'progress'].includes(r.status)) || null;
+
+    // verified achievements, limited to the ones chosen for this letter
+    let source = student.live ? DATA.achievements.filter(a => a.status === 'verified') : student.profile.achievements.filter(a => a.status === 'verified');
+    if (req) source = source.filter(a => req.achievementIds.includes(a.id));
+    else if (limitedToRequest) source = [];
+    if (!canAch) source = [];
+    source.sort((a, b) => b.date.localeCompare(a.date));
+
+    const acad = student.live ? DATA.academic : { gpa: student.profile.gpa, class: student.profile.cls, credits: student.profile.credits, totalCredits: student.profile.total };
+    const saved = req && DATA.drafts.find(d => d.reqId === req.id);
+
+    // student is told when their profile is opened
+    if (student.live) {
+      const now = todayISO() + 'T' + pad2(new Date().getHours()) + ':' + pad2(new Date().getMinutes());
+      const last = DATA.accessLog[0];
+      if (!(last && last.who === lecturerName() && last.ts === now)) {
+        DATA.accessLog.unshift({ ts: now, who: lecturerName(), what: 'Viewed profile', sections: sections.join(', ') });
+        notify(['Student', 'Alumni'], 'bell', 'grey', 'Your profile was viewed', lecturerName() + ' opened your profile' + (req ? ' for your ' + req.type.toLowerCase() + ' letter.' : '.'));
+        logAudit('Viewed', student.name + ' profile', sections.join(', '));
+      }
+    }
+
+    const stat = (tone, ic, label, value, note) => `
+      <div class="card stat"><div class="stat-top"><div class="stat-icon ${tone}">${icon(ic, 22)}</div><div class="label">${label}</div></div>
+      <div class="value ${tone}">${value}</div><div class="note">${note}</div></div>`;
+
+    root.innerHTML = `
+      <section class="card profile-head">
+        <div class="avatar lg">${student.initials}</div>
+        <div>
+          <h2>${esc(student.name)} <span class="pill plain">${esc(student.level)}</span></h2>
+          <div class="email">${esc(student.programme)}</div>
+          <div class="meta-row">
+            <span>${icon('user', 18)} Student ID: ${student.id}</span>
+            <span>${icon('shield', 18)} Shared with you${until ? ' until ' + fmtDate(until) : ''}: ${esc(sections.join(', ') || 'Nothing visible')}</span>
+          </div>
+        </div>
+      </section>
+
+      ${req ? `<section class="req-banner"><div class="top">
+          <div style="flex:1;min-width:220px"><h3>${esc(req.type)} letter · ${esc(req.purpose)}</h3>
+            <div class="meta">Deadline ${fmtDate(req.deadline)} · ${pill(req.status === 'completed' ? 'completed' : 'progress', req.status === 'sent' ? 'Waiting for you' : req.status === 'accepted' ? 'Accepted' : req.status === 'progress' ? 'In progress' : 'Completed')}</div></div>
+          ${req.status === 'sent' ? '<button class="btn small" id="accept">Accept request</button>' : ''}
+        </div>
+        ${req.keyPoints ? `<blockquote>${esc(req.keyPoints)}</blockquote>` : ''}
+        <div class="meta" style="margin-top:12px">You can see only the ${source.length} achievement(s) ${esc(student.name.split(' ')[0])} chose for this letter.</div></section>` : ''}
+
+      <section class="stats">
+        ${canAcad ? stat('red', 'cap', 'Cumulative GPA', acad.gpa, icon('lock', 13) + ' Official, ' + esc(acad.class)) : stat('grey', 'lock', 'Cumulative GPA', '—', 'Not shared with you')}
+        ${canAcad ? stat('grey', 'book', 'Credits completed', acad.credits, 'of ' + acad.totalCredits + ' programme credits') : stat('grey', 'book', 'Credits completed', '—', 'Not shared with you')}
+        ${stat('green', 'circleCheck', req ? 'Achievements for this letter' : 'Verified achievements', source.length, 'Verified by university staff')}
+        ${stat('amber', 'calendar', req ? 'Deadline' : 'Access ends', req ? fmtDate(req.deadline) : (until ? fmtDate(until) : '—'), req ? 'Letter due' : 'Set by the student').replace('class="value amber"', 'class="value amber" style="font-size:28px;margin:22px 0 10px"')}
+      </section>
+
+      <div class="two-col">
+        <section class="card card-pad">
+          <div class="card-head"><div><h2>${req ? 'Achievements for this letter' : 'Verified achievements'}</h2>
+            <div class="sub">Tick the ones to include in the draft.</div></div></div>
+          <div id="ach">${source.length ? source.map(a => `
+            <label class="ach-item" style="cursor:pointer"><input type="checkbox" name="a" value="${a.id}" checked>
+              <div style="flex:1"><strong>${esc(a.title)}</strong>
+                <div class="sub2">${esc(a.category)} · ${fmtDate(a.date)} · Verified by ${esc(a.verifiedBy || 'university staff')}</div></div>
+              ${a.tier ? '<span class="tier">' + a.tier + '</span>' : ''}</label>`).join('')
+            : '<div class="empty"><strong>Nothing to show</strong>' + (canAch ? 'No verified achievements were chosen for this request.' : 'The student has not shared achievements with you.') + '</div>'}</div>
+        </section>
+
+        <section class="card card-pad">
+          <div class="card-head"><div><h2>Letter draft</h2>
+            <div class="sub">Built from verified achievements only. You are the author, so edit freely.</div></div>
+            <button class="btn secondary small" id="gen">Regenerate</button></div>
+          <textarea class="draft-area" id="draft" aria-label="Letter draft"></textarea>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap">
+            <button class="btn secondary" id="print"></button>
+            ${req ? '<button class="btn secondary" id="save">Save draft</button>' : ''}
+            ${req && req.status !== 'completed' ? '<button class="btn" id="approve">Approve and complete</button>' : ''}
+          </div>
+        </section>
+      </div>
+
+      ${canAcad && student.live ? `<section class="card stack-gap">
+        <div class="card-top"><div><h2>Academic record</h2><div class="sub">Official results from the Academic Records Office. Read only.</div></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Code</th><th>Course name</th><th>Credits</th><th>Grade</th><th>Semester</th></tr></thead>
+        <tbody>${DATA.academic.courses.map(c => `<tr><td class="strong">${c.code}</td><td class="strong">${esc(c.name)}</td><td>${c.credits}</td><td>${c.grade}</td><td>${c.sem}</td></tr>`).join('')}</tbody></table></div>
+      </section>` : ''}
+
+      ${canDocs ? `<p class="sub" style="margin-top:20px">Documents are shared with you for this purpose.</p>` : ''}`;
+
+    document.getElementById('print').innerHTML = icon('printer', 18) + ' Print or save as PDF';
+
+    const chosen = () => [...document.querySelectorAll('[name=a]:checked')].map(c => source.find(a => a.id === +c.value)).filter(Boolean);
+    function draftText() {
+      const first = student.name.split(' ')[0], sel = chosen();
+      const type = req ? req.type.toLowerCase() : 'recommendation';
+      let t = 'Dear Selection Committee,\n\n';
+      t += 'I am writing in support of ' + student.name + ', who is studying ' + student.programme + ' at Africa University (' + student.level + '). ' +
+           first + ' asked me for a ' + type + ' letter' + (req ? ' in support of: ' + req.purpose : '') + '.\n\n';
+      if (canAcad) t += 'According to the official university record, ' + first + ' has a cumulative GPA of ' + acad.gpa + ' (' + acad.class + ') and has completed ' +
+                        acad.credits + ' of ' + acad.totalCredits + ' programme credits.\n\n';
+      if (sel.length) t += 'The following achievements have been verified by university staff:\n' +
+        sel.map(a => '• ' + a.title + ' (' + a.category + ', ' + fmtDate(a.date) + (a.tier ? ', ' + a.tier.toLowerCase() + ' recognition' : '') + ')').join('\n') + '\n\n';
+      if (req && req.keyPoints) t += first + ' also asked me to mention: ' + req.keyPoints + '\n\n';
+      t += '[Add your own observations here: how you know ' + first + ', and what you have seen in class or in other work.]\n\n';
+      t += 'Yours faithfully,\n' + lecturerName() + '\n' + (lec ? lec.dept : '') + '\nAfrica University';
+      return t;
+    }
+
+    const area = document.getElementById('draft');
+    let lastGen = draftText();
+    area.value = saved ? saved.text : lastGen;
+    if (saved) lastGen = null;
+    const regen = () => { lastGen = draftText(); area.value = lastGen; };
+    document.getElementById('gen').onclick = () => {
+      if (lastGen !== null && area.value === lastGen) { regen(); toast('Draft updated from your selection.'); return; }
+      openModal({ title: 'Replace your text?', body: 'Regenerating will replace what is in the draft now, including any edits you made.',
+        actions: [{ label: 'Keep my text', secondary: true }, { label: 'Replace', onClick: () => { regen(); toast('Draft regenerated.'); } }] });
+    };
+    document.getElementById('ach').addEventListener('change', () => { if (lastGen !== null && area.value === lastGen) regen(); });
+
+    function printIt() {
+      const w = window.open('', '_blank');
+      if (!w) { toast('Allow pop-ups to print.'); return; }
+      // no html/head/body tags on purpose (see profile.html)
+      w.document.write('<meta charset="utf-8"><title>Letter · ' + esc(student.name) + '</title><style>body{font-family:Georgia,serif;max-width:700px;margin:60px auto;padding:0 24px;line-height:1.7;white-space:pre-wrap}</style>' + esc(area.value));
+      w.document.close();
+      setTimeout(() => w.print(), 400);
+    }
+    document.getElementById('print').onclick = printIt;
+
+    if (req) {
+      const saveDraft = () => {
+        const d = { reqId: req.id, student: student.name, sid: student.id, type: req.type, purpose: req.purpose, deadline: req.deadline, text: area.value, updated: todayISO() };
+        const at = DATA.drafts.findIndex(x => x.reqId === req.id);
+        if (at > -1) DATA.drafts[at] = d; else DATA.drafts.push(d);
+        saveState();
+      };
+      document.getElementById('save').onclick = () => { saveDraft(); logAudit('Edited', req.type + ' letter', 'Draft updated for ' + student.name); toast('Draft saved. Find it under Drafts.'); };
+      const acc = document.getElementById('accept');
+      if (acc) acc.onclick = () => {
+        req.status = 'accepted'; const l = DATA.letters.find(x => x.id === req.letterId); if (l) { l.status = 'accepted'; l.label = 'Accepted'; }
+        notify(['Student', 'Alumni'], 'check', 'green', 'Letter request accepted', lecturerName() + ' accepted your ' + req.type.toLowerCase() + ' letter request.');
+        logAudit('Accepted', req.type + ' letter', student.name); saveState(); window.location.reload();
+      };
+      const ap = document.getElementById('approve');
+      if (ap) ap.onclick = () => {
+        if (req.status === 'sent') { toast('Accept the request first.'); return; }
+        if (area.value.includes('[Add your own observations here')) { toast('Replace the bracketed note with your own observations before approving.'); return; }
+        openModal({ title: 'Approve this letter?', body: 'The request will be marked as completed and ' + esc(student.name) + ' will be told it is ready.',
+          actions: [{ label: 'Not yet', secondary: true }, { label: 'Approve and complete', onClick: () => {
+            req.status = 'completed'; const l = DATA.letters.find(x => x.id === req.letterId); if (l) { l.status = 'completed'; l.label = 'Completed'; }
+            DATA.drafts = DATA.drafts.filter(x => x.reqId !== req.id);
+            notify(['Student', 'Alumni'], 'check', 'green', 'Letter completed', 'Your ' + req.type.toLowerCase() + ' letter from ' + lecturerName() + ' is ready.');
+            logAudit('Approved', req.type + ' letter', student.name);
+            saveState(); flash('Letter approved and marked as completed.'); window.location.href = 'lecturer-letters.html';
+          } }] });
+      };
+    }
+  }
+</script>
+</body>
+</html>
