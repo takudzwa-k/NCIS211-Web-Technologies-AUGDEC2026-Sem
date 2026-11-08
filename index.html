@@ -18,7 +18,6 @@
           </div>
           <span>AU Student Achievement &amp; Recommendation Profile</span>
         </div>
-
         <div>
           <div class="auth-tile">
             <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
@@ -26,133 +25,102 @@
           <h1>Your achievements, verified and ready.</h1>
           <p>Keep your university record in one trusted place and share it when it matters.</p>
         </div>
-
         <div class="auth-foot">Africa University · Student Services</div>
       </section>
 
       <section class="auth-right">
-        <form class="auth-form" id="login-form" novalidate>
-          <div class="kicker">Welcome back</div>
-          <h2>Sign in to your account</h2>
-          <p class="lead">Use your university credentials to continue.</p>
+        <div style="width:100%;display:flex;justify-content:center">
 
-          <div class="field">
-            <div class="field-top"><label for="email">Email address</label></div>
-            <input id="email" type="email" value="t.moyo@students.africau.edu" autocomplete="username">
-          </div>
-
-          <div class="field">
-            <div class="field-top">
-              <label for="password">Password</label>
-              <a href="#" class="link" id="forgot">Forgot password?</a>
+          <!-- SIGN IN -->
+          <form class="auth-form" id="login-form" novalidate>
+            <div class="kicker">Welcome back</div>
+            <h2>Sign in to your account</h2>
+            <p class="lead">Use your university credentials to continue.</p>
+            <div class="notice" id="notice"></div>
+            <div class="field">
+              <div class="field-top"><label for="email">Email address</label></div>
+              <input id="email" type="email" autocomplete="username">
             </div>
-            <input id="password" type="password" value="prototype12345" autocomplete="current-password">
+            <div class="field">
+              <div class="field-top"><label for="password">Password</label><a href="#" class="link" id="forgot">Forgot password?</a></div>
+              <input id="password" type="password" autocomplete="current-password">
+            </div>
+            <button class="btn block" type="submit">Sign in</button>
+            <p class="help">New here? <a href="#" id="to-signup">Create an account</a></p>
+            <div class="demo-box" id="demo" style="display:none">
+              <strong>Demo accounts (development only)</strong>
+              <div class="chips" id="demo-chips"></div>
+              <div style="margin-top:10px" id="demo-note"></div>
+            </div>
+          </form>
+
+          <!-- SIGN-IN CODE -->
+          <form class="auth-form" id="code-form" style="display:none" novalidate>
+            <div class="kicker">Two-step verification</div>
+            <h2>Check your email</h2>
+            <p class="lead">We sent a 6-digit code to <b id="code-email"></b>. Enter it to finish signing in. It works for 10 minutes.</p>
+            <div class="notice" id="code-notice"></div>
+            <div class="field"><div class="field-top"><label for="code">Verification code</label></div>
+              <input id="code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></div>
+            <button class="btn block" type="submit">Verify and sign in</button>
+            <p class="help"><a href="#" id="resend">Send a new code</a> &nbsp;·&nbsp; <a href="#" id="back-login">Back to sign in</a></p>
+            <p class="help devhint" style="display:none;margin-top:8px">Development mode: the email is in the <a href="pages/mailbox.html" target="_blank" rel="noopener">demo mailbox</a>.</p>
+          </form>
+
+          <!-- CREATE ACCOUNT -->
+          <form class="auth-form wide" id="signup-form" style="display:none" novalidate>
+            <div class="kicker">Create your account</div>
+            <h2>Join the portal</h2>
+            <p class="lead" style="margin-bottom:24px">For current students and alumni. Lecturers and staff are invited by the Records Office.</p>
+            <div class="notice" id="signup-notice"></div>
+            <div class="auth-switch" role="radiogroup" aria-label="Account type">
+              <label><input type="radio" name="type" value="Student" checked><span>Current student</span></label>
+              <label><input type="radio" name="type" value="Alumni"><span>Alumni</span></label>
+            </div>
+            <div class="field tight"><div class="field-top"><label for="su-name">Full name</label></div><input id="su-name" type="text" autocomplete="name"></div>
+            <div class="field tight"><div class="field-top"><label for="su-email">University email</label></div><input id="su-email" type="email" autocomplete="email" placeholder="name@students.africau.edu"></div>
+            <div class="two">
+              <div class="field tight"><div class="field-top"><label for="su-sid">Student ID</label></div><input id="su-sid" type="text" placeholder="AU-CS-230184" autocomplete="off"></div>
+              <div class="field tight" id="grad-wrap" style="display:none"><div class="field-top"><label for="su-grad">Graduation year</label></div><input id="su-grad" type="text" inputmode="numeric" maxlength="4" placeholder="2024"></div>
+            </div>
+            <div class="field tight"><div class="field-top"><label for="su-prog">Programme</label></div><select id="su-prog"></select></div>
+            <div class="two">
+              <div class="field tight"><div class="field-top"><label for="su-pw">Password</label></div><input id="su-pw" type="password" autocomplete="new-password">
+                <div class="meter"><i id="meter"></i></div><div class="meter-text" id="meter-text">At least 10 characters</div></div>
+              <div class="field tight"><div class="field-top"><label for="su-pw2">Confirm password</label></div><input id="su-pw2" type="password" autocomplete="new-password"></div>
+            </div>
+            <label class="check-line big"><input type="checkbox" id="su-consent"><span>I agree that the university may store my academic record and achievements here, and share them only as I choose.</span></label>
+            <button class="btn block" type="submit">Create account</button>
+            <p class="help">Already have an account? <a href="#" id="to-login">Sign in</a></p>
+          </form>
+
+          <!-- CHECK YOUR EMAIL (after sign-up) -->
+          <div class="auth-form" id="sent-panel" style="display:none">
+            <div class="kicker">Almost there</div>
+            <h2>Check your email</h2>
+            <div class="ok-box">If those details are valid, we have sent a confirmation link to your university email.</div>
+            <p class="lead" style="margin-bottom:12px">Open the link to activate your account, then sign in. The link works for 24 hours.</p>
+            <p class="lead devhint" style="display:none">Development mode: find the message in the <a href="pages/mailbox.html" target="_blank" rel="noopener">demo mailbox</a>.</p>
+            <p class="help" style="text-align:left">Nothing arrived? Check the address, or contact <a href="#">ICT Support</a>. <a href="#" id="sent-back">Back to sign in</a></p>
           </div>
 
-          <div class="field">
-            <div class="field-top"><label for="role">View prototype as</label></div>
-            <select id="role">
-              <option>Student</option>
-              <option>Alumni</option>
-              <option>Lecturer</option>
-              <option>Admin</option>
-            </select>
-          </div>
+          <!-- FORGOT PASSWORD -->
+          <form class="auth-form" id="reset-form" style="display:none" novalidate>
+            <div class="kicker">Password help</div>
+            <h2>Reset your password</h2>
+            <p class="lead">Enter your registered email address and we will send you a reset link.</p>
+            <div class="notice" id="reset-notice"></div>
+            <div class="field"><div class="field-top"><label for="reset-email">Email address</label></div><input id="reset-email" type="email" autocomplete="username"></div>
+            <button class="btn block" type="submit">Send reset link</button>
+            <p class="help"><a href="#" id="back-login-2">Back to sign in</a></p>
+            <p class="help devhint" style="display:none;margin-top:8px">Development mode: the email is in the <a href="pages/mailbox.html" target="_blank" rel="noopener">demo mailbox</a>.</p>
+          </form>
 
-          <button class="btn block" type="submit">
-            Sign in
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-          </button>
-          <div class="notice" id="notice"></div>
-
-          <p class="help">Need help? Contact <a href="#">ICT Support</a></p>
-        </form>
-
-        <form class="auth-form" id="code-form" style="display:none" novalidate>
-          <div class="kicker">Two-step verification</div>
-          <h2>Check your email</h2>
-          <p class="lead">We sent a 6-digit code to <b id="code-email"></b>. Enter it to finish signing in.</p>
-          <div class="field">
-            <div class="field-top"><label for="code">Verification code</label></div>
-            <input id="code" type="text" inputmode="numeric" maxlength="6" value="123456" autocomplete="one-time-code">
-          </div>
-          <button class="btn block" type="submit">Verify and sign in</button>
-          <div class="notice" id="code-notice"></div>
-          <p class="help"><a href="#" id="resend">Send a new code</a> &nbsp;·&nbsp; <a href="#" id="back-login">Back to sign in</a></p>
-          <p class="help" style="margin-top:8px">Prototype: the code is already filled in.</p>
-        </form>
-
-        <form class="auth-form" id="reset-form" style="display:none" novalidate>
-          <div class="kicker">Password help</div>
-          <h2>Reset your password</h2>
-          <p class="lead">Enter your registered email address and we will send you a reset link.</p>
-          <div class="field">
-            <div class="field-top"><label for="reset-email">Email address</label></div>
-            <input id="reset-email" type="email" autocomplete="username">
-          </div>
-          <button class="btn block" type="submit">Send reset link</button>
-          <div class="notice" id="reset-notice"></div>
-          <p class="help"><a href="#" id="back-login-2">Back to sign in</a></p>
-        </form>
+        </div>
       </section>
-
     </div>
   </div>
 
-  <script>
-    const forms = { login: 'login-form', code: 'code-form', reset: 'reset-form' };
-    function show(which) {
-      Object.keys(forms).forEach(k => { document.getElementById(forms[k]).style.display = k === which ? '' : 'none'; });
-    }
-    function say(id, text) { const n = document.getElementById(id); n.textContent = text; n.style.display = text ? 'block' : 'none'; }
-
-    const home = { Student: 'profile.html', Alumni: 'profile.html', Lecturer: 'find-students.html', Admin: 'verification-queue.html' };
-    function finish() {
-      const role = document.getElementById('role').value;
-      try { sessionStorage.setItem('au_role', role); } catch (err) {}
-      window.location.href = 'pages/' + home[role];
-    }
-    function twoStepOn() {
-      try { const st = JSON.parse(sessionStorage.getItem('au_state') || '{}'); if (st.security && st.security.twoStep === false) return false; } catch (e) {}
-      return true;
-    }
-
-    document.getElementById('login-form').addEventListener('submit', function (e) {
-      e.preventDefault();
-      const email = document.getElementById('email').value.trim();
-      const pass = document.getElementById('password').value;
-      if (!email || !pass) { say('notice', 'Enter your email address and password to sign in.'); return; }
-      say('notice', '');
-      if (twoStepOn()) { document.getElementById('code-email').textContent = email; say('code-notice', ''); show('code'); document.getElementById('code').focus(); }
-      else finish();
-    });
-
-    document.getElementById('code-form').addEventListener('submit', function (e) {
-      e.preventDefault();
-      if (document.getElementById('code').value.trim() === '123456') finish();
-      else say('code-notice', 'That code is not right. Check your email and try again.');
-    });
-    document.getElementById('resend').addEventListener('click', function (e) { e.preventDefault(); say('code-notice', 'A new code has been sent.'); });
-    document.getElementById('back-login').addEventListener('click', function (e) { e.preventDefault(); show('login'); });
-    document.getElementById('back-login-2').addEventListener('click', function (e) { e.preventDefault(); say('reset-notice', ''); show('login'); });
-
-    document.getElementById('forgot').addEventListener('click', function (e) {
-      e.preventDefault();
-      document.getElementById('reset-email').value = document.getElementById('email').value;
-      say('reset-notice', ''); show('reset');
-    });
-    document.getElementById('reset-form').addEventListener('submit', function (e) {
-      e.preventDefault();
-      if (!/^\S+@\S+\.\S+$/.test(document.getElementById('reset-email').value.trim())) { say('reset-notice', 'Enter a valid email address.'); return; }
-      say('reset-notice', 'If this address is registered, a reset link is on its way.');
-    });
-
-    // swap the sample email when the view changes
-    document.getElementById('role').addEventListener('change', function () {
-      const emails = { Student: 't.moyo@students.africau.edu', Alumni: 'r.chikwanha@alumni.africau.edu', Lecturer: 'n.dube@africau.edu', Admin: 'c.nyathi@africau.edu' };
-      document.getElementById('email').value = emails[this.value];
-      say('notice', '');
-    });
-  </script>
+  <script src="js/auth-page.js"></script>
 </body>
 </html>
