@@ -29,7 +29,7 @@ Every sign-in sends a one-time code by email. Real email is not connected yet, s
 | Lecturer | Dr. N. Dube | n.dube@africau.edu |
 | Admin | Chipo Nyathi | c.nyathi@africau.edu |
 
-**Create account** on the sign-in page makes a real student or alumni account. It needs a university email address and student ID, and the account only works after the emailed link is opened. Lecturers and staff are invited by an administrator (Users & Permissions).
+**Create account** on the sign-in page makes a real student or alumni account. It needs a university email address (name@africau.edu) and a six-digit student ID, and the account only works after the emailed link is opened. Lecturers and staff are invited by an administrator (Users & Permissions).
 
 ## What the server protects
 
