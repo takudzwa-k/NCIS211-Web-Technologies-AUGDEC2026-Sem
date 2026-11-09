@@ -124,6 +124,10 @@ app.post('/api/request-letter', requireAuth, (req, res) => {
 // START THE SERVER
 // ==========================================
 const PORT = process.env.PORT || 3000;
+// Route to serve the profile page
+app.get('/profile', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'pages', 'profile.html'));
+});
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Database connection established.`);
