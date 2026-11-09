@@ -45,8 +45,9 @@ Every sign-in sends a one-time code by email. Real email is not connected yet, s
 - **No account guessing:** sign-up and password-reset replies are the same whether or not an email exists.
 
 ## A 10-minute tour
-Create an account from the sign-in page. Open the confirmation link from the Demo mailbox, then sign in.
-Student: sign in as Tendai. Add an achievement and send it to the Sports Director. The email appears in the Demo mailbox.
+Create an account from the sign-in page.
+Open the confirmation link from the Demo mailbox, then sign in.
+Student: sign in as Tendai. Add an achievement and send it to the Sports Director.The email appears in the Demo mailbox.
 Staff without an account: open that link in a private window. No login. Confirm it. Back as Tendai, it is Verified and says who confirmed it.
 Admin: sign in as Chipo. Open the queue, Flag for explanation on another item. As Tendai, explain it. As Chipo, verify it. Open the Audit Log.
 Letters: as Tendai, New request to Dr. Dube and tick two achievements. As Dr. Dube, accept it, open the profile (only those two are visible), edit the draft and approve it.
