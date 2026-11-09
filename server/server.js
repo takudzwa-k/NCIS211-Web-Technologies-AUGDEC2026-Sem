@@ -4,6 +4,9 @@ const path = require('path');
 const db = require('./db'); // Connects to the database we just made
 
 const app = express();
+const path = require('path');
+// Serve the frontend files (HTML, CSS, JS) from the root directory
+app.use(express.static(path.join(__dirname, '..')));
 
 // Middleware to parse JSON and form data
 app.use(express.json());
