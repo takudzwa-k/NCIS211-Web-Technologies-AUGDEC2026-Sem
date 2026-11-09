@@ -7,5 +7,12 @@
     "start": "node server/server.js",
     "create-admin": "node server/create-admin.js"
   },
-  "engines": { "node": ">=22.5.0" }
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "sqlite3": "^5.1.6"
+  }
 }
