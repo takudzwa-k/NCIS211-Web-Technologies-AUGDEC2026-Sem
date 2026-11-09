@@ -1,3 +1,4 @@
+
 /* Shared code: icons, sidebar, top bar, toast, modal, helpers */
 
 const ICONS = {
