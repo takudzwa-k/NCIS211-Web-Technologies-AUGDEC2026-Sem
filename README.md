@@ -45,18 +45,16 @@ Every sign-in sends a one-time code by email. Real email is not connected yet, s
 - **No account guessing:** sign-up and password-reset replies are the same whether or not an email exists.
 
 ## A 10-minute tour
-
-1. **Create an account** from the sign-in page. Open the confirmation link from the Demo mailbox, then sign in.
-2. **Student:** sign in as Tendai. Add an achievement and send it to the *Sports Director*. The email appears in the Demo mailbox.
-3. **Staff without an account:** open that link in a private window. No login. Confirm it. Back as Tendai, it is Verified and says who confirmed it.
-4. **Admin:** sign in as Chipo. Open the queue, **Flag for explanation** on another item. As Tendai, explain it. As Chipo, verify it. Open the **Audit Log**.
-5. **Letters:** as Tendai, *New request* to Dr. Dube and tick two achievements. As Dr. Dube, accept it, open the profile (only those two are visible), edit the draft and approve it.
-6. **Privacy:** as Tendai, **Sharing & Privacy**: turn off Academic Record, create a share link, revoke Dr. Dube. As Dr. Dube, Tendai disappears at once.
-7. **Documents:** upload a PDF and an image, preview and download them.
-8. **Proof for other institutions:** **Export verified record**, then check its code on the verify page without signing in. Withdraw it and check again.
-9. **Grades:** as Chipo, **Academic Data Import**: download the sample CSV, import it, and watch the student's GPA change (it is worked out from the grades).
-10. **Account & security** (profile menu): change a password, see devices and sign-in history.
-
+Create an account from the sign-in page. Open the confirmation link from the Demo mailbox, then sign in.
+Student: sign in as Tendai. Add an achievement and send it to the Sports Director. The email appears in the Demo mailbox.
+Staff without an account: open that link in a private window. No login. Confirm it. Back as Tendai, it is Verified and says who confirmed it.
+Admin: sign in as Chipo. Open the queue, Flag for explanation on another item. As Tendai, explain it. As Chipo, verify it. Open the Audit Log.
+Letters: as Tendai, New request to Dr. Dube and tick two achievements. As Dr. Dube, accept it, open the profile (only those two are visible), edit the draft and approve it.
+Privacy: as Tendai, Sharing & Privacy: turn off Academic Record, create a share link, revoke Dr. Dube. As Dr. Dube, Tendai disappears at once.
+Documents: upload a PDF and an image, preview and download them.
+Proof for other institutions: Export verified record, then check its code on the verify page without signing in. Withdraw it and check again.
+Grades: as Chipo, Academic Data Import: download the sample CSV, import it, and watch the student's GPA change (it is worked out from the grades).
+Account & security (profile menu): change a password, see devices and sign-in history.
 ## Settings (environment variables)
 
 | Variable | Meaning | Default |
