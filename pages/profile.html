@@ -25,6 +25,17 @@
         </div>
       </div>
 
+      <!-- ⭐ PREMIUM UPGRADE BANNER START ⭐ -->
+      <div id="premiumBanner" style="padding: 15px; background: #eef5ff; border: 1px solid #007bff; border-radius: 5px; margin-bottom: 20px; display: none;">
+          <h3 style="margin-top: 0; color: #007bff;">⭐ Upgrade to Premium Career Services</h3>
+          <p>Get expedited processing, industry-tailored letters, and official PDF seals.</p>
+          <button id="btnUpgrade" style="background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+              Upgrade Now (Mock $10 Payment)
+          </button>
+      </div>
+      <p id="upgradeStatus" style="color: green; font-weight: bold;"></p>
+      <!-- ⭐ PREMIUM UPGRADE BANNER END ⭐ -->
+
       <section class="card profile-head" id="head-card"></section>
       <section class="stats" id="stats"></section>
 
@@ -223,5 +234,50 @@
 
   renderAll();
 </script>
+
+<!-- ⭐ PREMIUM UPGRADE LOGIC START ⭐ -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const upgradeBtn = document.getElementById('btnUpgrade');
+    const banner = document.getElementById('premiumBanner');
+    const statusMsg = document.getElementById('upgradeStatus');
+
+    // Show the banner (In a real app, you would check the database to see if they are already premium first)
+    banner.style.display = 'block'; 
+
+    if (upgradeBtn) {
+        upgradeBtn.addEventListener('click', async () => {
+            upgradeBtn.disabled = true;
+            upgradeBtn.innerText = "Processing...";
+
+            try {
+                const response = await fetch('/api/upgrade-premium', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    banner.style.display = 'none'; 
+                    statusMsg.innerText = "🎉 Success! You are now a Premium member.";
+                    setTimeout(() => window.location.reload(), 2000); 
+                } else {
+                    alert("Upgrade failed: " + data.error);
+                    upgradeBtn.disabled = false;
+                    upgradeBtn.innerText = "Upgrade Now (Mock $10 Payment)";
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("A network error occurred.");
+                upgradeBtn.disabled = false;
+                upgradeBtn.innerText = "Upgrade Now (Mock $10 Payment)";
+            }
+        });
+    }
+});
+</script>
+<!-- ⭐ PREMIUM UPGRADE LOGIC END ⭐ -->
+
 </body>
 </html>
