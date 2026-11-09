@@ -1,6 +1,4 @@
 // server/mail.js
-// This is a mock mailer. In production, replace this with Nodemailer or SendGrid.
-
 async function send(to, subject, body) {
     console.log("-----------------------------------------");
     console.log(`📧 MOCK EMAIL SENT`);
