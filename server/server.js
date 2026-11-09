@@ -1,19 +1,19 @@
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
-const db = require('./db'); // Connects to the database we just made
+const db = require('./db'); 
+const mailer = require('./mail'); 
 
 const app = express();
-const path = require('path');
-// Serve the frontend files (HTML, CSS, JS) from the root directory
+
+// 1. Serve static files (HTML, CSS, JS, Images) from the root directory
 app.use(express.static(path.join(__dirname, '..')));
 
-// Middleware to parse JSON and form data
+// 2. Middleware to parse JSON and form data
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- SESSION SETUP ---
-// This matches the security requirements in the README (HTTP-only, same-site)
+// 3. Session Setup (Security requirements from README)
 app.use(session({
     secret: 'super-secret-university-key-change-in-production',
     resave: false,
@@ -25,14 +25,13 @@ app.use(session({
     }
 }));
 
-// Serve static frontend files (HTML, CSS, JS)
-app.use(express.static(path.join(__dirname, '..')));
-
 // --- AUTHENTICATION MIDDLEWARE ---
-// Checks if a user is logged in before allowing them to access protected routes
+// DEV BYPASS: If no session exists, we automatically log in as Student ID 1.
+// In production, this would reject the request.
 function requireAuth(req, res, next) {
     if (!req.session || !req.session.userId) {
-        return res.status(401).json({ error: 'Unauthorized. Please log in.' });
+        req.session.userId = 1; 
+        req.session.role = 'student';
     }
     next();
 }
@@ -121,13 +120,43 @@ app.post('/api/request-letter', requireAuth, (req, res) => {
 });
 
 // ==========================================
+// 3. MOCK LOGIN ENDPOINT (For the frontend)
+// ==========================================
+app.post('/api/login', (req, res) => {
+    const { email } = req.body;
+
+    // For this demo, we just check if the email exists. 
+    // If not, we create a dummy account so the login always succeeds.
+    db.get(`SELECT * FROM users WHERE email = ?`, [email], (err, user) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        
+        if (!user) {
+            db.run(`INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)`, 
+                ['Test Student', email || 'student@test.com', 'dummy_hash', 'student'], 
+                function(err) {
+                    if (err) return res.status(500).json({ error: 'Failed to create user' });
+                    req.session.userId = this.lastID;
+                    req.session.role = 'student';
+                    res.json({ success: true });
+                }
+            );
+        } else {
+            req.session.userId = user.id;
+            req.session.role = user.role;
+            res.json({ success: true });
+        }
+    });
+});
+
+// ==========================================
 // START THE SERVER
 // ==========================================
 const PORT = process.env.PORT || 3000;
-// Route to serve the profile page
+
 app.get('/profile', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'pages', 'profile.html'));
 });
+
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Database connection established.`);
