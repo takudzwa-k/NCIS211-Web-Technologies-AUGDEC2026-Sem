@@ -51,6 +51,11 @@ If deployed as an internal university tool, maintenance is funded by the institu
 Free Tier (Basic): Students can store verified achievements, export basic verified records, and request standard recommendation letters at no cost. Hosting costs are minimal as the system runs on Node.js and SQLite.
 
 Premium Tier (The Cash Flow): Students can pay a small fee for "Premium Career Services." This includes:
+### 🧪 How to test the Premium Upgrade
+1. **Sign in** as the Student (`t.moyo@students.africau.edu`).
+2. Go to the Student Dashboard. You will see a **"⭐ Upgrade to Premium"** banner.
+3. Click the **Upgrade Now** button. This triggers a mock payment (via the `/api/upgrade-premium` endpoint) and updates the database.
+4. Once upgraded, the banner disappears. When you request a new letter from Dr. Dube, the backend automatically flags it as expedited and tailored based on your new Premium status.
 
 Expedited Processing: Letters are prioritized in the lecturer's queue.
 
