@@ -40,8 +40,6 @@
         $('demo-note').textContent = 'Click one to fill in the email and the shared demo password. Real accounts are made with Create account.';
         $('demo-chips').querySelectorAll('button').forEach(b => b.onclick = () => { $('email').value = d.accounts[b.dataset.i].email; $('password').value = demoPassword; });
       }).catch(() => say('notice', 'Cannot reach the portal server. Start it with  node server/server.js  and open http://localhost:' + (location.port || 3000) + ' (not Live Server).'));
-    } else {
-      if ($('live-hint')) $('live-hint').style.display = '';
     }
   });
 
