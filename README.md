@@ -4,6 +4,16 @@ A working portal with a real server and database. Students and alumni record ach
 
 No packages to install. It uses only what comes with Node.
 
+## Team
+
+Africa University, Web Technologies (NCIS211) group project.
+
+| Member | Student ID | Role |
+|---|---|---|
+| Takudzwa Kachingwe | 250625 | Lead Web Developer (Front-End) |
+| Tamupiwa Mapasure | 250991 | UI/UX Designer |
+| Kudzai Tsaura | 250610 | Back-End & Security Developer |
+
 ## Run it
 
 1. You need **Node.js 22.5 or newer** (uses native `node:sqlite`). Check with `node --version`. If it is older, install or switch with `nvm use 22` or `nvm use 25`.

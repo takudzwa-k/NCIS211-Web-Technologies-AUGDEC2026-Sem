@@ -69,6 +69,51 @@ function ensureSupervisor() {
       store.insertRec('notifications', phiriId, null, { icon: 'inbox', tone: 'amber', title: 'New assessment request', desc: 'Tendai Moyo requested an industrial attachment assessment.', at: Date.now() - 45 * 60000, unread: true });
     }
   }
+  ensureTendaiPremium();
+}
+
+function ensureTendaiPremium() {
+  const now = Date.now(), day = 86400000, oneYearLater = now + 365 * day;
+  const tendai = db.prepare("SELECT id, name FROM users WHERE id = 'u_demo_tendai' OR email = 't.moyo@students.africau.edu'").get();
+  if (tendai) {
+    const existing = db.prepare("SELECT * FROM premium WHERE user_id = ?").get(tendai.id);
+    if (!existing) {
+      db.prepare(`INSERT INTO premium (id, user_id, reference, status, requested_at, decided_at, expires_at)
+                  VALUES (?, ?, ?, 'approved', ?, ?, ?)`).run(
+        'p_demo_' + tendai.id,
+        tendai.id,
+        'ECO-PAY-SEM2-2026',
+        now - 5 * day,
+        now - 4 * day,
+        oneYearLater
+      );
+    } else {
+      db.prepare(`UPDATE premium SET status = 'approved', expires_at = ? WHERE id = ?`).run(
+        oneYearLater,
+        existing.id
+      );
+    }
+  }
+  const takudzwa = db.prepare("SELECT id, name FROM users WHERE email = 'kachingwet@africau.edu'").get();
+  if (takudzwa) {
+    const existingTak = db.prepare("SELECT * FROM premium WHERE user_id = ?").get(takudzwa.id);
+    if (!existingTak) {
+      db.prepare(`INSERT INTO premium (id, user_id, reference, status, requested_at, decided_at, expires_at)
+                  VALUES (?, ?, ?, 'approved', ?, ?, ?)`).run(
+        'prem_' + takudzwa.id,
+        takudzwa.id,
+        'ECOCASH-PREM-KAD5IC',
+        now - 5 * day,
+        now - 4 * day,
+        oneYearLater
+      );
+    } else {
+      db.prepare(`UPDATE premium SET status = 'approved', expires_at = ? WHERE id = ?`).run(
+        oneYearLater,
+        existingTak.id
+      );
+    }
+  }
 }
 
 function seedAll() {
@@ -194,6 +239,7 @@ function seedAll() {
   store.kvSet(R, 'contact', { phone: '+263 71 ••• ••92', backup: 'rudo.chikwanha@gmail.com' });
   audit(null, 'Chipo Nyathi', 'Data imported', 'semester-1-2025-results.csv', '2,184 academic records');
   audit(null, 'Dr. N. Dube', 'Verified', 'ZIM ICT Student Innovation Challenge', 'Tier set to Major');
+  ensureTendaiPremium();
 }
 
 module.exports = { ensureSeed, seedAll, PASSWORD };
