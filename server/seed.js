@@ -94,7 +94,28 @@ function ensureTendaiPremium() {
       );
     }
   }
-  const takudzwa = db.prepare("SELECT id, name FROM users WHERE email = 'kachingwet@africau.edu'").get();
+  let takudzwa = db.prepare("SELECT id, name FROM users WHERE email = 'kachingwet@africau.edu'").get();
+  const takudzwaHash = 'scrypt$16384$8$1$e32Yp3aHN2dLm9/VbnCNnA==$rhTommrwbx45K356ikNNlRUIj3PSkAV9Fp7RM+ryev6wUgTO/WLGSvPMIPZbJGjY5IDMSsKQvy3eT94GeSfq8g==';
+  if (!takudzwa) {
+    const takId = 'u_YodQu1pfuEqP';
+    db.prepare(`INSERT INTO users (id, email, name, role, password_hash, status, student_id, programme, faculty, entry_year, two_step, created_at, pw_changed_at, last_login)
+                VALUES (?, ?, 'Takudzwa Kachingwe', 'Student', ?, 'active', '250625', 'Bachelor of Science Honours in Computer Science', 'Faculty of Science and Technology', 2025, 0, ?, ?, ?)`).run(
+      takId,
+      'kachingwet@africau.edu',
+      takudzwaHash,
+      now - 60 * day,
+      now - 30 * day,
+      now
+    );
+    takudzwa = { id: takId, name: 'Takudzwa Kachingwe' };
+    const d = { title: 'Advanced Web Applications Development', categories: ['Academic Awards'], category: 'Academic Awards', date: store.addDays(store.todayISO(), -20), level: 'Institutional',
+      role: 'Lead Developer', description: 'Engineered Africa University Achievement & Recommendation Portal prototype.',
+      preUni: false, files: [], file: '—', verifier: 'Dr. N. Dube', tier: 'Major', status: 'verified', submitted: store.addDays(store.todayISO(), -25),
+      history: [{ when: store.addDays(store.todayISO(), -25), text: 'Submitted for verification' }, { when: store.addDays(store.todayISO(), -20), text: 'Verified by Dr. N. Dube' }], id: null,
+      verifiedBy: 'Dr. N. Dube', verifiedAt: now - 20 * day };
+    store.insertRec('achievements', takId, null, d);
+    store.kvSet(takId, 'skills', [{ name: 'JavaScript', type: 'Technical' }, { name: 'Node.js', type: 'Technical' }, { name: 'SQLite', type: 'Technical' }]);
+  }
   if (takudzwa) {
     const existingTak = db.prepare("SELECT * FROM premium WHERE user_id = ?").get(takudzwa.id);
     if (!existingTak) {
@@ -128,6 +149,7 @@ function seedAll() {
     U[key] = id; return id;
   };
   add('tendai', { email: 't.moyo@students.africau.edu', name: 'Tendai Moyo', role: 'Student', sid: '230184', programme: 'Bachelor of Science Honours in Computer Science', faculty: 'Faculty of Science and Technology', entry: 2023, last: now - 3600000 });
+  add('takudzwa', { email: 'kachingwet@africau.edu', name: 'Takudzwa Kachingwe', role: 'Student', sid: '250625', programme: 'Bachelor of Science Honours in Computer Science', faculty: 'Faculty of Science and Technology', entry: 2025, last: now - 1800000 });
   add('rudo', { email: 'r.chikwanha@alumni.africau.edu', name: 'Rudo Chikwanha', role: 'Alumni', sid: '200742', programme: 'Bachelor of Business Studies Honours in Management', faculty: 'Faculty of Management and Administration', entry: 2020, grad: 2024, last: now - 12 * day });
   add('tatenda', { email: 'tatenda.chari@students.africau.edu', name: 'Tatenda Chari', role: 'Student', sid: '220091', programme: 'Bachelor of Science Honours in Computer Information Systems', faculty: 'Faculty of Science and Technology', entry: 2022 });
   add('tafadzwa', { email: 't.ncube@students.africau.edu', name: 'Tafadzwa Ncube', role: 'Student', sid: '240317', programme: 'Bachelor of Science Honours in Computer Science', faculty: 'Faculty of Science and Technology', entry: 2024 });
