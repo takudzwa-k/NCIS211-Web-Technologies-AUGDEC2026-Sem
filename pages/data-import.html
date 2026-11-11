@@ -49,15 +49,14 @@
 <script src="../js/data.js"></script>
 <script src="../js/app.js"></script>
 <script>
-  const H = DATA.imports;
+  let H = DATA.imports;
   document.getElementById('top-import').innerHTML = icon('upload', 18) + ' Import .CSV';
   document.getElementById('tile').innerHTML = icon('upload', 32);
 
   function render() {
-    saveState();
     document.getElementById('rows').innerHTML = H.map(h => `
       <tr>
-        <td class="strong"><span class="file-cell">${icon('doc', 20)} ${h.name}</span></td>
+        <td class="strong"><span class="file-cell">${icon('doc', 20)} ${esc(h.name)}</span></td>
         <td>${fmtDate(h.date, true)}</td>
         <td>${h.by}</td>
         <td>${h.rows.toLocaleString('en-US')}</td>
@@ -123,11 +122,21 @@
                <p style="margin-top:12px;font-size:12px">Nothing is changed until you confirm.</p>`,
         actions: [
           { label: 'Cancel', secondary: true },
-          { label: 'Confirm import', onClick: () => {
-              const picked = [...document.querySelectorAll('[data-map]')].map(s => s.value);
+          { label: 'Confirm import', onClick: o => {
+              const picked = [...document.querySelectorAll('[data-map]')].map(s => +s.value);
               if (new Set(picked).size !== picked.length) { toast('Each field needs its own column.'); return false; }
-              H.unshift({ name: file.name, date: new Date().toISOString().slice(0, 10), by: DATA.user.name, rows: data.length, result: 'Completed' });
-              logAudit('Data imported', file.name, data.length.toLocaleString('en-US') + ' academic records'); render(); toast(data.length.toLocaleString('en-US') + ' records imported.'); } }
+              const nameCol = head.findIndex(h => /course.?name|title|description/i.test(h));
+              const payload = data.map(r => ({ student_id: r[picked[0]], course_code: r[picked[1]], credits: r[picked[2]], grade: r[picked[3]], semester: r[picked[4]], course_name: nameCol > -1 ? r[nameCol] : '' }));
+              // the server checks every row and works out each student's GPA from the grades
+              apiAsync('POST', '/api/admin/import', { name: file.name, rows: payload }).then(r => {
+                if (r.status !== 200) { toast((r.json && r.json.error) || 'The import failed.'); return; }
+                o.close();
+                const j = r.json;
+                openModal({ title: 'Import finished', body: `<p><b style="color:var(--text)">${j.imported.toLocaleString('en-US')}</b> course results were saved, covering <b style="color:var(--text)">${j.students}</b> student account${j.students === 1 ? '' : 's'}.` +
+                  `${j.skipped ? '<br><br>' + j.skipped + ' row' + (j.skipped === 1 ? ' was' : 's were') + ' skipped:<ul style="padding-left:18px;margin-top:6px">' + j.errors.map(e => '<li>Row ' + e.row + ': ' + esc(e.msg) + '</li>').join('') + '</ul>' : ''}</p>` });
+                apiAsync('GET', '/api/bootstrap').then(b => { if (b.json && b.json.data) { H = DATA.imports = b.json.data.imports; render(); } });
+              });
+              return false; } }
         ]
       });
     };
@@ -135,7 +144,7 @@
   };
 
   document.getElementById('sample').onclick = () => {
-    const csv = 'student_id,course_code,credits,grade,semester\nAU-CS-230184,CT301,15,A,Semester 1 2025\nAU-CS-230184,CT304,15,A-,Semester 1 2025\nAU-IS-220091,IS302,15,B+,Semester 1 2025\n';
+    const csv = 'student_id,course_code,credits,grade,semester\n230184,CT301,15,A,Semester 1 2025\n230184,CT304,15,A-,Semester 1 2025\n220091,IS302,15,B+,Semester 1 2025\n';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     a.download = 'sample-results.csv'; a.click();

@@ -23,6 +23,10 @@
 
       <div class="form-layout">
         <section class="card form-card">
+          <div id="premium-banner" style="display:none;background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:12px 16px;border-radius:10px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
+            <span class="badge-premium" style="font-size:11px">PREMIUM</span>
+            <div><strong>Premium Career Services Active</strong><div style="font-size:13px">Your request is flagged for expedited priority delivery and professional formatting.</div></div>
+          </div>
           <div class="fld" id="g-type">
             <label for="type">Letter type</label>
             <select id="type"></select>
@@ -30,9 +34,9 @@
           </div>
 
           <div class="fld" id="g-lect">
-            <label for="lect">Lecturer</label>
+            <label for="lect">Lecturer or Attachment Supervisor</label>
             <select id="lect"></select>
-            <div class="msg">Choose a lecturer.</div>
+            <div class="msg">Choose a lecturer or supervisor.</div>
           </div>
           <div class="fld" id="official-note" style="display:none">
             <div class="reason-box">This letter is issued by the Academic Records Office, not by a lecturer. Who issues attachment and admission letters is still to be confirmed with the university.</div>
@@ -42,6 +46,18 @@
             <label for="purpose">Purpose</label>
             <input id="purpose" type="text" placeholder="For example: Merit scholarship application">
             <div class="msg">Say what the letter is for.</div>
+          </div>
+
+          <div class="fld" id="g-tailor" style="display:none">
+            <label for="tailor">Industry / Focus Tailoring <span class="badge-premium">PREMIUM</span></label>
+            <select id="tailor">
+              <option value="General Professional">General Professional &amp; Corporate</option>
+              <option value="Software & Technology">Software Engineering &amp; Technology</option>
+              <option value="Business & Management">Business, Management &amp; Finance</option>
+              <option value="Academic & Postgraduate">Postgraduate Research &amp; Academia</option>
+              <option value="Public Sector & NGOs">Public Sector, Non-Profit &amp; Community</option>
+            </select>
+            <div class="hint">Your author will see this focus and generate tailored phrasing for this specific industry.</div>
           </div>
 
           <div class="fld" id="g-deadline">
@@ -89,11 +105,20 @@
   document.getElementById('back').innerHTML = icon('back', 16) + ' Letter Requests';
   document.getElementById('tip-ic').innerHTML = icon('shield', 30).replace('class="ic"', 'class="ic big"');
 
+  const isPrem = DATA.user.premium && DATA.user.premium.state === 'premium';
+  if (isPrem) {
+    document.getElementById('premium-banner').style.display = 'flex';
+    document.getElementById('g-tailor').style.display = '';
+  }
+
+  const academicLetters = DATA.letterTypes.filter(t => !t.toLowerCase().includes('attachment'));
+  const attachmentLetters = DATA.letterTypes.filter(t => t.toLowerCase().includes('attachment'));
   document.getElementById('type').innerHTML = '<option value="">Choose a letter type</option>' +
-    '<optgroup label="Written by a lecturer">' + DATA.letterTypes.map(t => `<option>${t}</option>`).join('') + '</optgroup>' +
+    '<optgroup label="Recommendation & Academic Letters">' + academicLetters.map(t => `<option>${t}</option>`).join('') + '</optgroup>' +
+    (attachmentLetters.length ? '<optgroup label="Industrial Attachment Letters">' + attachmentLetters.map(t => `<option>${t}</option>`).join('') + '</optgroup>' : '') +
     '<optgroup label="Official letters (Records Office)">' + DATA.officialLetters.map(t => `<option>${t}</option>`).join('') + '</optgroup>';
-  document.getElementById('lect').innerHTML = '<option value="">Choose a lecturer</option>' +
-    DATA.lecturers.map(l => `<option value="${esc(l.name)}">${esc(l.name)} · ${esc(l.dept)}</option>`).join('');
+  document.getElementById('lect').innerHTML = '<option value="">Choose a lecturer or supervisor</option>' +
+    DATA.lecturers.map(l => `<option value="${esc(l.id)}">${esc(l.name)} · ${esc(l.dept)}${l.role === 'Supervisor' ? ' (Attachment Supervisor)' : ''}</option>`).join('');
 
   const deadline = document.getElementById('deadline');
   deadline.min = todayISO();
@@ -110,7 +135,7 @@
     document.getElementById('g-lect').style.display = off ? 'none' : '';
     document.getElementById('g-ach').style.display = off ? 'none' : '';
     document.getElementById('official-note').style.display = off ? '' : 'none';
-    const lname = document.getElementById('lect').value;
+    const sel = document.getElementById('lect'), lname = sel.value ? sel.options[sel.selectedIndex].textContent.split(' · ')[0] : '';
     document.getElementById('access-note').textContent = off
       ? 'The Records Office will use your official university record. No achievements are shared.'
       : (lname ? lname + ' will be able to view the achievements you choose' : 'The lecturer will be able to view the achievements you choose')
@@ -135,26 +160,12 @@
     if (!ok) { document.getElementById(first).scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('Some required information is missing. Check the highlighted fields.'); return; }
 
     const points = document.getElementById('points').value.trim();
-    const stamp = Date.now();
-    const letter = { id: 'L' + stamp, lecturer: off ? 'Academic Records Office' : lect, type: type, deadline: dl, status: 'sent', label: 'Sent', purpose: purpose, keyPoints: points };
-    DATA.letters.unshift(letter);
-
-    if (off) {
-      notify(['Admin'], 'inbox', 'amber', 'Official letter requested', user.name + ' asked for an ' + type.toLowerCase() + ' for ' + purpose + '.');
-    } else {
-      DATA.lecturerRequests.push({ id: 'R' + stamp, student: user.name, sid: user.studentId, letterId: letter.id, type: type, deadline: dl,
-                                   status: 'sent', purpose: purpose, achievementIds: ids, keyPoints: points });
-      if (!DATA.access.some(a => a.name === lect)) {
-        const l = DATA.lecturers.find(x => x.name === lect);
-        DATA.access.push({ name: lect, initials: initialsOf(lect), dept: l ? l.dept : '', sections: ['Selected achievements'],
-                           expires: fmtDate(dl), expiresISO: dl, purpose: type + ' letter' });
-        DATA.accessLog.unshift({ ts: todayISO() + 'T' + pad2(new Date().getHours()) + ':' + pad2(new Date().getMinutes()), who: 'You', what: 'Shared with ' + lect, sections: 'Selected achievements' });
-      }
-      notify(['Lecturer'], 'inbox', 'amber', 'New letter request', user.name + ' asked for a ' + type.toLowerCase() + ' letter (due ' + fmtDate(dl) + ').');
-    }
-    notify([CURRENT_ROLE], 'check', 'green', 'Letter request sent', 'Your ' + type.toLowerCase() + ' request was sent' + (off ? ' to the Records Office.' : ' to ' + lect + '.'));
-    logAudit('Created', type + ' letter request', purpose);
-    saveState(); flash('Request sent. You will be notified when it is accepted.'); window.location.href = 'letter-requests.html';
+    const tailor = isPrem ? document.getElementById('tailor').value : '';
+    const lec = off ? null : DATA.lecturers.find(l => l.id === lect);
+    // one request record; the server works out the lecturer's copy, the access they get and who is told
+    DATA.lecturerRequests.push({ lecturerId: off ? null : lect, lecturer: off ? 'Academic Records Office' : (lec ? lec.name : ''), official: off, type: type, deadline: dl,
+                                 status: 'sent', purpose: purpose, achievementIds: ids, keyPoints: points, tailoring: tailor });
+    if (saveState()) { flash('Request sent. You will be notified when it is accepted.'); window.location.href = 'letter-requests.html'; }
   };
 </script>
 </body>

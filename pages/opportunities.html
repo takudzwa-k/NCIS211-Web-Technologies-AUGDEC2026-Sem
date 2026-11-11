@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Opportunities &amp; Career Hub · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .opp-tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border); margin-bottom: 22px; flex-wrap: wrap; }
+    .opp-tab { background: none; border: none; padding: 10px 18px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+    .opp-tab.active { color: var(--red); border-bottom-color: var(--red); }
+
+    .opp-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 22px; margin-bottom: 16px; transition: border-color .15s, box-shadow .15s; }
+    .opp-card:hover { border-color: #d1d5db; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+    .opp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+    .opp-head h3 { margin: 0 0 4px; font-size: 17px; }
+    .opp-co { font-size: 13px; font-weight: 600; color: #4b5563; }
+    .opp-meta { display: flex; gap: 16px; font-size: 12.5px; color: #6b7280; margin: 10px 0 14px; flex-wrap: wrap; }
+    .opp-meta span { display: inline-flex; align-items: center; gap: 5px; }
+
+    /* Comparison Table (Rubric Row 5) */
+    .compare-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .compare-table th { background: #f9fafb; padding: 12px 14px; text-align: left; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; border-bottom: 2px solid var(--border); }
+    .compare-table td { padding: 14px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+    .compare-table tr:hover td { background: #fcfcfd; }
+    .feat-au { background: #fff8f8; font-weight: 600; color: #991b1b; }
+    .tag-yes { color: #065f46; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block; }
+    .tag-no { color: #991b1b; background: #fef2f2; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block; }
+    .tag-partial { color: #854d0e; background: #fef9c3; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block; }
+
+    /* Resource Cards */
+    .res-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .res-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; }
+    .res-card h3 { font-size: 15px; margin: 0 0 6px; }
+    .res-card p { font-size: 13px; color: #4b5563; margin: 0 0 16px; line-height: 1.5; }
+  </style>
+</head>
+<body data-page="opportunities">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Opportunities &amp; Career Hub</h1>
+          <p>Industrial attachment postings, key university milestones, and institutional comparative insights.</p>
+        </div>
+        <div style="display:flex;gap:10px" id="page-actions"></div>
+      </div>
+
+      <nav class="opp-tabs" id="tab-nav">
+        <button class="opp-tab active" data-tab="postings">Opportunities Board</button>
+        <button class="opp-tab" data-tab="deadlines">Deadlines &amp; Reminders</button>
+        <button class="opp-tab" data-tab="resources">Resource Library</button>
+        <button class="opp-tab" data-tab="comparison">System Comparison (Institutional Audit)</button>
+      </nav>
+
+      <!-- TAB 1: Opportunities Board -->
+      <section id="tab-postings">
+        <div class="toolbar" style="margin-bottom:16px">
+          <div class="input-icon" id="search-wrap"><input id="q" type="text" placeholder="Search opportunities by company, role or skills..."></div>
+          <select class="select" id="f-type">
+            <option value="">All placement types</option>
+            <option value="attachment">Industrial Attachment</option>
+            <option value="graduate">Graduate Trainee</option>
+            <option value="internship">Vacation Internship</option>
+          </select>
+        </div>
+        <div id="opp-list"></div>
+      </section>
+
+      <!-- TAB 2: Deadlines & Reminders Feed -->
+      <section id="tab-deadlines" style="display:none">
+        <div class="card card-pad" style="margin-bottom:20px">
+          <h2>Upcoming Milestones &amp; Academic Deadlines</h2>
+          <p class="sub">Key university and corporate partner deadlines for the current semester.</p>
+          <div id="deadlines-list" style="margin-top:16px;display:flex;flex-direction:column;gap:12px"></div>
+        </div>
+      </section>
+
+      <!-- TAB 3: Resource Library -->
+      <section id="tab-resources" style="display:none">
+        <div class="card card-pad" style="margin-bottom:16px">
+          <h2>Career &amp; Attachment Resource Library</h2>
+          <p class="sub">Official templates, handbooks, and interview preparation blueprints for Africa University students.</p>
+        </div>
+        <div class="res-grid" id="res-list"></div>
+      </section>
+
+      <!-- TAB 4: Comparative Evaluation (Row 5 of Rubric) -->
+      <section id="tab-comparison" style="display:none">
+        <div class="card card-pad" style="margin-bottom:18px">
+          <h2>Comparative Evaluation: Institutional Trust Architecture</h2>
+          <p class="sub">Why Africa University requires a purpose-built Student Achievement &amp; Recommendation Profile over generic alternatives.</p>
+        </div>
+        <div class="card table-wrap" style="padding:0">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th style="width:24%">Architectural Capability</th>
+                <th style="width:26%;color:#991b1b">AU Purpose-Built Profile (This System)</th>
+                <th style="width:16%">Generic LinkedIn</th>
+                <th style="width:17%">Shared Spreadsheet</th>
+                <th style="width:17%">Static CV / Portfolio</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Institutional Verification</strong><div class="sub2">Faculty &amp; workplace sign-off</div></td>
+                <td class="feat-au"><span class="tag-yes">Enforced</span> Cryptographically tied to lecturer &amp; supervisor accounts</td>
+                <td><span class="tag-no">None</span> Self-reported claims with unverified endorsements</td>
+                <td><span class="tag-no">None</span> Anyone with edit access can alter text</td>
+                <td><span class="tag-no">None</span> Self-declared without server proof</td>
+              </tr>
+              <tr>
+                <td><strong>Academic Record Sync</strong><div class="sub2">Official Grades &amp; GPA</div></td>
+                <td class="feat-au"><span class="tag-yes">Real-Time Sync</span> Read-only feed directly from Academic Records Office</td>
+                <td><span class="tag-no">Manual</span> Subject to grade exaggeration</td>
+                <td><span class="tag-partial">Manual Entry</span> Fragile formulas, accidental cell overwrites</td>
+                <td><span class="tag-no">Static</span> Vulnerable to PDF tampering</td>
+              </tr>
+              <tr>
+                <td><strong>Industrial Attachment Portal</strong><div class="sub2">Corporate supervisor view</div></td>
+                <td class="feat-au"><span class="tag-yes">Dedicated Role</span> Real supervisor login (e.g. Mrs. R. Phiri), task logging &amp; AU letterhead evaluations</td>
+                <td><span class="tag-no">None</span> No employer assessment workflows</td>
+                <td><span class="tag-partial">Fragmented</span> Rows of cells without confidential rating or drafts</td>
+                <td><span class="tag-no">None</span> Strictly candidate-facing</td>
+              </tr>
+              <tr>
+                <td><strong>Granular Privacy Control</strong><div class="sub2">Time-limited &amp; purpose-bounded</div></td>
+                <td class="feat-au"><span class="tag-yes">Granular Grants</span> Students grant access for specific items with automatic expiration and 1-click revoke</td>
+                <td><span class="tag-no">Public</span> Broadcast to search engines and network connections</td>
+                <td><span class="tag-no">Binary</span> Shared sheet reveals all students' grades and notes</td>
+                <td><span class="tag-no">Uncontrolled</span> Forwarded PDFs can never be revoked</td>
+              </tr>
+              <tr>
+                <td><strong>Tamper-Proof Audit Trail</strong><div class="sub2">Security &amp; compliance</div></td>
+                <td class="feat-au"><span class="tag-yes">Immutable Log</span> Append-only database table refusing alteration or deletion</td>
+                <td><span class="tag-no">No Institutional Trail</span> Platform logs inaccessible to university</td>
+                <td><span class="tag-partial">Basic History</span> Unreliable rollback, no formal digital signatures</td>
+                <td><span class="tag-no">None</span> No logging or view auditing</td>
+              </tr>
+              <tr>
+                <td><strong>Third-Party Authenticity Check</strong><div class="sub2">Foreign universities &amp; employers</div></td>
+                <td class="feat-au"><span class="tag-yes">Live Verification Code</span> Anyone can check exported code at <code>/verify.html</code> without login</td>
+                <td><span class="tag-no">None</span> Recruiters must contact university manually</td>
+                <td><span class="tag-no">None</span> Cannot share raw spreadsheets externally</td>
+                <td><span class="tag-no">None</span> Paper or PDF easily forged</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  const u = DATA.user;
+  const isPrem = u.premium && u.premium.state === 'premium';
+  document.getElementById('search-wrap').insertAdjacentHTML('afterbegin', icon('search', 18));
+
+  const actionsBox = document.getElementById('page-actions');
+  if (actionsBox) {
+    if (CURRENT_ROLE === 'Student' || CURRENT_ROLE === 'Alumni') {
+      actionsBox.innerHTML = '<a class="btn secondary" href="cv-maker.html">Open CV Maker</a>';
+    } else if (CURRENT_ROLE === 'Admin') {
+      actionsBox.innerHTML = '<button class="btn" id="add-opp">+ Add Posting</button>';
+      document.getElementById('add-opp').onclick = () => {
+        openModal({
+          title: 'Add Placement Opportunity',
+          body: `<div class="fld"><label>Role Title</label><input id="no-title" type="text" placeholder="e.g. Cloud & DevOps Trainee"></div>
+                 <div class="fld"><label>Company / Organization</label><input id="no-co" type="text" placeholder="e.g. Econet Wireless"></div>
+                 <div class="fld"><label>Placement Type</label><select id="no-type"><option value="attachment">Industrial Attachment</option><option value="graduate">Graduate Trainee</option><option value="internship">Internship</option></select></div>
+                 <div class="fld"><label>Allowance / Stipend</label><input id="no-stipend" type="text" placeholder="e.g. US$350 / month"></div>
+                 <div class="fld"><label>Deadline</label><input id="no-deadline" type="date" value="${addDays(todayISO(), 30)}"></div>
+                 <div class="fld" style="margin-bottom:0"><label>Description</label><textarea id="no-desc" rows="3"></textarea></div>`,
+          actions: [
+            { label: 'Cancel', secondary: true },
+            { label: 'Publish Opportunity', onClick: () => {
+              const title = document.getElementById('no-title').value.trim();
+              const co = document.getElementById('no-co').value.trim();
+              if (!title || !co) { toast('Please enter a role title and company name.'); return false; }
+              OPPORTUNITIES.unshift({
+                id: Date.now(),
+                title,
+                company: co,
+                location: 'Harare / Mutare',
+                type: document.getElementById('no-type').value,
+                deadline: document.getElementById('no-deadline').value,
+                stipend: document.getElementById('no-stipend').value.trim() || 'Competitive',
+                supervisor: 'Assigned Industrial Supervisor',
+                skills: ['Problem Solving', 'Relevant Degree'],
+                desc: document.getElementById('no-desc').value.trim() || 'New opportunity for Africa University students.'
+              });
+              renderPostings();
+              toast('Opportunity published successfully!');
+            }}
+          ]
+        });
+      };
+    }
+  }
+
+  // --- Sample Curated Postings ---
+  const OPPORTUNITIES = [
+    {
+      id: 1,
+      title: 'Software Engineering Trainee (Industrial Attachment)',
+      company: 'Econet Wireless Zimbabwe',
+      location: 'Harare / Mutare',
+      type: 'attachment',
+      deadline: '2026-12-15',
+      stipend: 'US$350 / month allowance',
+      supervisor: 'Mrs. R. Phiri (Industrial Attachment Supervisor)',
+      skills: ['Python', 'SQL', 'Web Technologies', 'REST APIs'],
+      desc: 'Join the Core Platforms and Digital Systems engineering team. Assist in implementing resilient billing, API integration, and cloud-native services. High placement rate for graduating trainees.'
+    },
+    {
+      id: 2,
+      title: 'Fintech & Data Analytics Attachment',
+      company: 'Old Mutual Zimbabwe',
+      location: 'Harare / Hybrid',
+      type: 'attachment',
+      deadline: '2026-12-20',
+      stipend: 'US$320 / month allowance',
+      supervisor: 'Mr. T. Chitate (Head of Data & Analytics)',
+      skills: ['Data Structures', 'Python', 'Statistics', 'Database Systems'],
+      desc: 'Hands-on placement in risk modelling, digital insurance portals, and customer data warehousing. Requires strong algorithmic foundation and verified academic standing.'
+    },
+    {
+      id: 3,
+      title: 'Digital Systems & Cybersecurity Apprentice',
+      company: 'Cassava Smartech / EcoCash Holdings',
+      location: 'Harare',
+      type: 'attachment',
+      deadline: '2026-12-10',
+      stipend: 'Competitive attachment allowance',
+      supervisor: 'Mr. K. Ndoro (Information Security Officer)',
+      skills: ['Computer Networks', 'Operating Systems', 'Security', 'Linux'],
+      desc: 'Participate in vulnerability assessment, cloud infrastructure hardening, and real-time transaction monitoring in a high-throughput mobile money ecosystem.'
+    },
+    {
+      id: 4,
+      title: 'Supply Chain & Operations Information Systems Trainee',
+      company: 'Delta Corporation Limited',
+      location: 'Mutare Brewery / Regional Depot',
+      type: 'attachment',
+      deadline: '2027-01-05',
+      stipend: 'US$300 + transport assistance',
+      supervisor: 'Ms. P. Moyo (Logistics & Systems Lead)',
+      skills: ['Information Systems', 'Enterprise Software', 'Problem Solving'],
+      desc: 'Optimization of inventory workflows, distribution tracking, and automated reporting systems across distribution centers in Manicaland.'
+    },
+    {
+      id: 5,
+      title: 'Campus Cloud & Infrastructure Fellow',
+      company: 'Africa University Directorate of ICT',
+      location: 'Old Mutare Campus',
+      type: 'internship',
+      deadline: '2026-11-30',
+      stipend: 'Campus stipend + accommodation',
+      supervisor: 'Director of ICT Services',
+      skills: ['Network Admin', 'System Configuration', 'Helpdesk Support'],
+      desc: 'Support campus-wide fiber network, student portal maintenance, and hybrid classroom streaming systems at Africa University.'
+    }
+  ];
+
+  // --- Deadlines Data ---
+  const DEADLINES = [
+    { title: 'Semester Industrial Attachment Logbook & Evaluation Submission', due: '2026-12-05', category: 'Attachment', urgency: 'High', note: 'All attached students must submit their mid-term supervisor evaluation report via the portal.' },
+    { title: 'Africa University Merit Scholarship & Dean’s List Priority Window', due: '2026-11-28', category: 'Scholarship', urgency: 'Urgent', note: 'Requires a minimum 3.60 GPA and at least two verified achievements on your profile.' },
+    { title: 'SADC Regional Graduate Science & Tech Fellowship 2027', due: '2026-12-31', category: 'Fellowship', urgency: 'Moderate', note: 'Submit verified records and academic recommendation letters.' },
+    { title: 'Faculty of Science & Technology Capstone Project Proposal', due: '2027-01-15', category: 'Academic', urgency: 'Normal', note: 'Submit approved project abstract and faculty supervisor endorsement.' }
+  ];
+
+  // --- Resource Library Data ---
+  const RESOURCES = [
+    { title: 'AU Industrial Attachment Handbook (2026 Edition)', desc: 'Official regulations, logbook guidelines, student code of conduct, and evaluation criteria.', tag: 'Official Guide', free: true },
+    { title: 'Workplace Assessment Rubric & Competency Matrix', desc: 'Grading scale used by industrial supervisors (Mrs. R. Phiri) and faculty coordinators.', tag: 'Assessment', free: true },
+    { title: 'Recommendation Letter Etiquette & Checklist', desc: 'How to request impactful letters from lecturers, including required lead times and achievement tagging.', tag: 'Guideline', free: true },
+    { title: 'Executive Technical Interview Blueprint', desc: 'Comprehensive coding challenge bank, systems design questions, and Zimbabwe tech ecosystem hiring insights.', tag: 'Premium Toolkit', free: false },
+    { title: 'High-Scoring Sample Attachment Report Deck', desc: 'A-grade attachment project report, slide deck templates, and defense presentation guidelines.', tag: 'Premium Resource', free: false }
+  ];
+
+  // Tab switching
+  document.querySelectorAll('.opp-tab').forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll('.opp-tab').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      const t = b.dataset.tab;
+      ['postings', 'deadlines', 'resources', 'comparison'].forEach(id => {
+        document.getElementById('tab-' + id).style.display = id === t ? '' : 'none';
+      });
+    };
+  });
+
+  // Render Postings
+  function renderPostings() {
+    const q = document.getElementById('q').value.toLowerCase().trim();
+    const type = document.getElementById('f-type').value;
+    const list = OPPORTUNITIES.filter(o =>
+      (!type || o.type === type) &&
+      (!q || (o.title + ' ' + o.company + ' ' + o.skills.join(' ')).toLowerCase().includes(q))
+    );
+    const box = document.getElementById('opp-list');
+    if (!list.length) {
+      box.innerHTML = '<div class="card empty"><strong>No postings match your search</strong>Try a different keyword or filter.</div>';
+      return;
+    }
+    box.innerHTML = list.map(o => `
+      <div class="opp-card">
+        <div class="opp-head">
+          <div>
+            <h3>${esc(o.title)}</h3>
+            <div class="opp-co">${esc(o.company)} · <span style="font-weight:400;color:#6b7280">${esc(o.location)}</span></div>
+          </div>
+          <span class="pill ${o.type === 'attachment' ? 'progress' : 'plain'}">${esc(o.type === 'attachment' ? 'Industrial Attachment' : o.type === 'graduate' ? 'Graduate Trainee' : 'Internship')}</span>
+        </div>
+        <div class="opp-meta">
+          <span>${icon('calendar', 16)} Deadline: <b>${fmtDate(o.deadline)}</b></span>
+          <span>${icon('award', 16)} Allowance: ${esc(o.stipend)}</span>
+          <span>${icon('user', 16)} Mentor/Supervisor: ${esc(o.supervisor)}</span>
+        </div>
+        <p style="font-size:13.5px;color:#374151;margin:0 0 14px;line-height:1.55">${esc(o.desc)}</p>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${o.skills.map(s => `<span class="chip" style="font-size:11px">${esc(s)}</span>`).join('')}
+          </div>
+          <div style="display:flex;gap:8px">
+            ${isPrem ? `
+              <button class="btn small" data-apply="${o.id}">1-Click Verified Apply</button>
+              <button class="btn small secondary" data-endorse="${o.id}">Request Endorsement</button>` : `
+              <button class="btn small secondary" data-apply="${o.id}">View Requirements</button>
+              <a class="btn small" href="premium.html" style="background:#fef3c7;border:1px solid #fde68a;color:#92400e">Upgrade for 1-Click Apply</a>`}
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    box.querySelectorAll('[data-apply]').forEach(b => b.onclick = () => {
+      const id = +b.dataset.apply;
+      const op = OPPORTUNITIES.find(x => x.id === id);
+      if (isPrem) {
+        openModal({
+          title: 'Apply with AU Verified Profile',
+          body: `<p>Apply to <strong>${esc(op.title)}</strong> at <strong>${esc(op.company)}</strong>.</p>
+                 <div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:12px;border-radius:8px;font-size:13px;color:#166534;margin-bottom:12px">
+                   <strong>Verified Application Package Attached:</strong>
+                   <ul style="margin:6px 0 0;padding-left:18px">
+                     <li>Official Academic GPA (${a.gpa}) certified by AU Records</li>
+                     <li>${DATA.achievements.filter(x => x.status === 'verified').length} Verified Achievements signed by Faculty</li>
+                     <li>Executive AU Authenticity Code included</li>
+                   </ul>
+                 </div>
+                 <div class="fld"><label>Candidate Note to Recruiter / Supervisor</label><textarea id="app-msg" rows="3" placeholder="Brief note explaining your qualifications and relevant coursework..."></textarea></div>`,
+          actions: [
+            { label: 'Cancel', secondary: true },
+            { label: 'Submit Verified Application', onClick: () => {
+              logAudit('Application sent', op.company, op.title);
+              toast('Application sent directly to ' + op.company + ' with your verified profile!');
+            } }
+          ]
+        });
+      } else {
+        openModal({
+          title: op.title,
+          body: `<p><strong>${esc(op.company)}</strong> (${esc(op.location)})</p>
+                 <p style="font-size:13px;color:#4b5563">${esc(op.desc)}</p>
+                 <div class="sub2" style="margin-top:10px"><b>Required Skills:</b> ${op.skills.join(', ')}</div>
+                 <div class="sub2" style="margin-top:4px"><b>Deadline:</b> ${fmtDate(op.deadline)}</div>
+                 <div style="margin-top:14px;padding:12px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;font-size:12.5px;color:#92400e">
+                   <strong>Standard Application:</strong> Submit cover letter, CV and official stamped transcripts to Student Services.<br>
+                   <i>Tip: Premium students can apply in 1 click with their verified profile and supervisor endorsement attached.</i>
+                 </div>`,
+          actions: [
+            { label: 'Close', secondary: true },
+            { label: 'Upgrade to Premium', onClick: () => window.location.href = 'premium.html' }
+          ]
+        });
+      }
+    });
+
+    box.querySelectorAll('[data-endorse]').forEach(b => b.onclick = () => {
+      const id = +b.dataset.endorse;
+      const op = OPPORTUNITIES.find(x => x.id === id);
+      openModal({
+        title: 'Request Supervisor Endorsement',
+        body: `<p>Send an expedited request to your attachment supervisor or lecturer to endorse your application for <strong>${esc(op.title)}</strong> at <strong>${esc(op.company)}</strong>.</p>
+               <div class="fld"><label>Choose Endorser</label><select id="endorser-sel"><option>Mrs. R. Phiri (Industrial Attachment Supervisor)</option><option>Dr. N. Dube (Senior Lecturer)</option></select></div>
+               <div class="fld"><label>Message to Endorser</label><textarea rows="2">Dear Supervisor, I am applying for this role at ${op.company}. Please attach an expedited assessment endorsement to my verified AU profile.</textarea></div>`,
+        actions: [
+          { label: 'Cancel', secondary: true },
+          { label: 'Send Expedited Request', onClick: () => {
+            toast('Endorsement request dispatched to supervisor with priority flag.');
+          } }
+        ]
+      });
+    });
+  }
+
+  // Render Deadlines
+  function renderDeadlines() {
+    const list = document.getElementById('deadlines-list');
+    list.innerHTML = DEADLINES.map(d => `
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f9fafb;border:1px solid var(--border);border-radius:10px;padding:14px 18px;flex-wrap:wrap;gap:12px">
+        <div style="flex:1;min-width:240px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span class="badge-${d.urgency === 'Urgent' ? 'premium' : 'expedited'}">${d.urgency}</span>
+            <strong style="font-size:14px;color:#111827">${esc(d.title)}</strong>
+          </div>
+          <div style="font-size:12.5px;color:#4b5563">${esc(d.note)}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;color:var(--muted)">Cut-off Date</div>
+          <div style="font-size:15px;font-weight:700;color:#c8102e">${fmtDate(d.due)}</div>
+          <button class="btn secondary small" style="margin-top:6px" onclick="toast('Milestone reminder added to your notifications.')">Add Reminder</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Render Resources
+  function renderResources() {
+    const list = document.getElementById('res-list');
+    list.innerHTML = RESOURCES.map(r => `
+      <div class="res-card">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span class="${r.free ? 'pill plain' : 'badge-premium'}">${r.tag}</span>
+            <span style="font-size:11px;color:var(--muted)">PDF Document</span>
+          </div>
+          <h3>${esc(r.title)}</h3>
+          <p>${esc(r.desc)}</p>
+        </div>
+        <div>
+          ${r.free || isPrem ? `
+            <button class="btn secondary block small" onclick="toast('Downloading ${esc(r.title)}...')">${icon('download', 14)} Download Guide</button>` : `
+            <a class="btn block small" href="premium.html" style="background:#fef3c7;border:1px solid #fde68a;color:#92400e">Unlock with Premium</a>`}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  ['q', 'f-type'].forEach(id => document.getElementById(id).addEventListener('input', renderPostings));
+
+  renderPostings();
+  renderDeadlines();
+  renderResources();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "au-achievement-portal",
+  "version": "1.0.0",
+  "description": "Africa University student achievement and recommendation profile",
+  "private": true,
+  "scripts": {
+    "start": "node server/server.js",
+    "demo": "node server/server.js --demo",
+    "live": "node server/server.js --live",
+    "mode:demo": "node server/mode.js demo",
+    "mode:live": "node server/mode.js live",
+    "share": "node server/share.js",
+    "share:demo": "node server/share.js --demo",
+    "share:live": "node server/share.js --live",
+    "create-admin": "node server/create-admin.js"
+  },
+  "engines": { "node": ">=22.5.0" }
+}

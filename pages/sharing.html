@@ -33,7 +33,7 @@
 
       <section class="card">
         <div class="card-top">
-          <div><h2>Lecturer access</h2><div class="sub">People who currently have permission to view your profile. Access always has a purpose and an end date.</div></div>
+          <div><h2>Staff &amp; Supervisor access</h2><div class="sub">Lecturers and attachment supervisors who currently have permission to view your profile. Access always has a purpose and an end date.</div></div>
           <button class="btn" id="grant"></button>
         </div>
         <div id="access"></div>
@@ -59,17 +59,8 @@
 
       <section class="card card-pad stack-gap">
         <h2>Account security</h2>
-        <div class="sub">Sign-ins from a new place need an extra check, and you are alerted when it happens.</div>
-        <div class="set-row" style="margin-top:14px">
-          <div><strong>Two-step verification</strong><span>A one-time code is sent to your email when you sign in.</span></div>
-          <input type="checkbox" class="toggle" id="twostep" aria-label="Two-step verification">
-        </div>
-        <div class="table-wrap" style="margin-top:6px">
-          <table>
-            <thead><tr><th>Device</th><th>Place</th><th>When</th><th>Result</th></tr></thead>
-            <tbody id="logins"></tbody>
-          </table>
-        </div>
+        <div class="sub">Your password, two-step sign-in, the devices signed in and your recent sign-in activity.</div>
+        <a class="btn secondary" href="account.html" style="margin-top:16px">Open account &amp; security</a>
       </section>
     </main>
   </div>
@@ -124,25 +115,22 @@
 
   document.getElementById('grant').onclick = () => openModal({
     wide: true, title: 'Grant access',
-    body: `<div class="fld"><label for="gl">Lecturer</label><select id="gl"><option value="">Choose a lecturer</option>${DATA.lecturers.map(l => `<option value="${esc(l.name)}">${esc(l.name)} · ${esc(l.dept)}</option>`).join('')}</select></div>
+    body: `<div class="fld"><label for="gl">Lecturer or Attachment Supervisor</label><select id="gl"><option value="">Choose a lecturer or supervisor</option>${DATA.lecturers.map(l => `<option value="${esc(l.id)}">${esc(l.name)} · ${esc(l.dept)}${l.role === 'Supervisor' ? ' (Attachment Supervisor)' : ''}</option>`).join('')}</select></div>
            <div class="fld"><span class="lbl">What they can see</span><div class="chip-select">
              ${['Achievements', 'Academic Record', 'Documents'].map(s => `<label class="opt"><input type="checkbox" name="gs" value="${s}" ${s !== 'Documents' ? 'checked' : ''}><span>${s}</span></label>`).join('')}</div></div>
            <div class="fld"><label for="gp">Purpose</label><input id="gp" type="text" placeholder="For example: Scholarship support letter"></div>
            <div class="fld" style="margin-bottom:0"><label for="ge">Access ends on</label><input id="ge" type="date" min="${todayISO()}" value="${addDays(todayISO(), 30)}">
              <div class="hint">There is no permanent access. You can revoke it earlier at any time.</div></div>`,
     actions: [{ label: 'Cancel', secondary: true }, { label: 'Grant access', onClick: () => {
-      const name = document.getElementById('gl').value, purpose = document.getElementById('gp').value.trim(), end = document.getElementById('ge').value;
+      const lecId = document.getElementById('gl').value, purpose = document.getElementById('gp').value.trim(), end = document.getElementById('ge').value;
       const secs = [...document.querySelectorAll('[name=gs]:checked')].map(c => c.value);
-      if (!name || !purpose || !end || !secs.length) { toast('Choose a lecturer, at least one section, a purpose and an end date.'); return false; }
+      if (!lecId || !purpose || !end || !secs.length) { toast('Choose a lecturer, at least one section, a purpose and an end date.'); return false; }
       if (end < todayISO()) { toast('The end date cannot be in the past.'); return false; }
-      const l = DATA.lecturers.find(x => x.name === name);
-      const entry = { name: name, initials: initialsOf(name), dept: l.dept, sections: secs, expires: fmtDate(end), expiresISO: end, purpose: purpose };
-      const at = DATA.access.findIndex(a => a.name === name);
-      if (at > -1) DATA.access[at] = entry; else DATA.access.push(entry);
-      DATA.accessLog.unshift({ ts: todayISO() + 'T' + pad2(new Date().getHours()) + ':' + pad2(new Date().getMinutes()), who: 'You', what: 'Granted access to ' + name, sections: secs.join(', ') });
-      notify(['Lecturer'], 'shield', 'green', 'Profile access granted', user.name + ' shared ' + secs.join(' and ').toLowerCase() + ' with you until ' + fmtDate(end) + '.');
-      logAudit('Access granted', name, secs.join(', ') + ' until ' + fmtDate(end));
-      saveState(); renderAccess(); renderHistory(); toast('Access granted to ' + name + '.');
+      const l = DATA.lecturers.find(x => x.id === lecId), name = l.name;
+      const entry = { lecturerId: l.id, name: name, initials: initialsOf(name), dept: l.dept, sections: secs, expires: fmtDate(end), expiresISO: end, purpose: purpose };
+      const at = DATA.access.findIndex(a => a.lecturerId === l.id);
+      if (at > -1) Object.assign(DATA.access[at], entry); else DATA.access.push(entry);   // the server tells the lecturer and writes the audit entry
+      if (saveState()) { renderAccess(); renderHistory(); toast('Access granted to ' + name + '.'); }
     } }]
   });
 
@@ -184,14 +172,6 @@
       <span style="white-space:nowrap">${fmtDate(h.ts.slice(0, 10), true)} · ${h.ts.slice(11)}</span></div>`).join('')
       : '<div class="empty">Nobody has viewed your profile yet.</div>';
   }
-
-  // --- security ---
-  const ts = document.getElementById('twostep');
-  ts.checked = DATA.security.twoStep;
-  ts.onchange = () => { DATA.security.twoStep = ts.checked; saveState(); toast('Two-step verification ' + (ts.checked ? 'is on.' : 'is off. Your account is less protected.')); };
-  const here = [{ device: 'This device', place: 'Harare, ZW', when: 'Now', result: 'Signed in' }].concat(DATA.loginHistory);
-  document.getElementById('logins').innerHTML = here.map(r => `<tr><td class="strong">${esc(r.device)}</td><td>${esc(r.place)}</td><td>${esc(r.when)}</td>
-    <td>${r.result === 'Signed in' ? pill('verified', 'Signed in') : pill('rejected', esc(r.result))}</td></tr>`).join('');
 
   function renderExports() {
     const box = document.getElementById('exports'), E = DATA.exports;

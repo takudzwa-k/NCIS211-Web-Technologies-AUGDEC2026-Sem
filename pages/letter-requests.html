@@ -31,7 +31,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Lecturer</th><th>Letter type</th><th>Deadline</th><th>Status</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Lecturer / Supervisor</th><th>Letter type</th><th>Deadline</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody id="rows"></tbody>
           </table>
         </div>
@@ -57,7 +57,7 @@
     document.getElementById('empty').style.display = list.length ? 'none' : 'block';
     document.getElementById('rows').innerHTML = list.map(x => `
       <tr>
-        <td class="strong">${esc(x.l.lecturer)}</td><td>${esc(x.l.type)}</td><td>${fmtDate(x.l.deadline)}</td>
+        <td class="strong">${esc(x.l.lecturer)}</td><td>${esc(x.l.type)}${x.l.isPremium ? ' <span class="badge-expedited">Expedited</span>' : ''}</td><td>${fmtDate(x.l.deadline)}</td>
         <td>${pill(PILL[x.l.status], LABEL[x.l.status])}</td>
         <td><button class="icon-btn" data-i="${x.i}" aria-label="Request details">${icon('more', 20)}</button></td>
       </tr>`).join('');
@@ -69,9 +69,8 @@
     const acts = [{ label: 'Close', secondary: true }];
     if (req && (l.status === 'progress' || l.status === 'completed')) {
       acts.push({ label: 'Ask for a revision', onClick: () => {
-        notify(['Lecturer'], 'inbox', 'amber', 'Revision requested', DATA.user.name + ' asked for changes to the ' + l.type.toLowerCase() + ' letter.');
-        logAudit('Revision requested', l.type + ' letter', 'Requested by ' + DATA.user.name);
-        toast('Revision request sent to ' + l.lecturer + '.');
+        req.revisionAt = todayISO();                                  // the server tells the lecturer
+        if (saveState()) toast('Revision request sent to ' + l.lecturer + '.');
       } });
     }
     openModal({

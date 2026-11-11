@@ -45,32 +45,23 @@ function icon(name, size = 20) {
   return `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
 }
 
-/* ---------- storage (safe wrappers) ---------- */
-function store(key, val) {
-  try { if (val === undefined) return sessionStorage.getItem(key); sessionStorage.setItem(key, val); } catch (e) { return null; }
-}
-function notificationsRead() { return store('au_read') === '1'; }
-
 /* ---------- shared helpers used across roles ---------- */
 function pad2(n) { return String(n).padStart(2, '0'); }
 function todayISO() { const d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
 function addDays(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
-function nextId(list) { return list.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0) + 1; }
+/* New things get a temporary negative id until the server saves them and gives the real one. */
+let TEMP_ID = 0;
+function nextId() { return --TEMP_ID; }
 function initialsOf(name) { return name.replace(/^(Dr\.|Prof\.)\s*/i, '').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase(); }
 
-/* tell another role something happened (shows in their Notifications) */
-function notify(to, ic, tone, title, desc) {
-  DATA.notifications.unshift({ icon: ic, tone: tone, title: title, desc: desc, time: 'Just now', unread: true, isNew: true, to: to });
-  saveState();
-}
-/* record an action in the audit log */
-function logAudit(action, item, details, asUser) {
-  const d = new Date();
-  DATA.audit.unshift({ ts: todayISO() + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()), user: asUser || DATA.user.name, action: action, item: item, details: details });
-  saveState();
-}
+/* Notifications and the audit log are written by the server when it accepts a change, so pages cannot fake them.
+   These two stay as harmless no-ops so older page code keeps working. */
+function notify() { }
+function logAudit() { }
+/* A person can still send a message to the administrators. */
+function notifyAdmin(title, desc) { return apiAsync('POST', '/api/notify-admin', { title: title, desc: desc }); }
 
-/* ---------- approval emails for staff who verify by link ---------- */
+/* Who confirms an achievement by email link (names only; the server sends the email). */
 const VERIFIER_PEOPLE = {
   'Lecturer': 'Dr. N. Dube',
   'Department head': 'Prof. A. Mutasa (Head of Department)',
@@ -78,25 +69,15 @@ const VERIFIER_PEOPLE = {
   'Chaplaincy': 'Rev. P. Zimba (Chaplain)',
   'Attachment supervisor': 'Mrs. R. Phiri (Industrial supervisor)'
 };
-function randToken(n) { const c = 'abcdefghijklmnopqrstuvwxyz0123456789'; let t = ''; for (let i = 0; i < n; i++) t += c[Math.floor(Math.random() * c.length)]; return t; }
-function sendApprovalEmail(a, q) {
-  const to = VERIFIER_PEOPLE[a.verifier];
-  if (!to) return null;                                            // Records Office works from the queue
-  DATA.emails.forEach(e => { if (e.achId === a.id && e.status === 'open') e.status = 'replaced'; });
-  const e = { id: 'E' + Date.now(), token: randToken(24), kind: 'approval', to: to, subject: 'Please confirm an achievement for ' + q.student,
-    student: q.student, sid: q.sid, title: a.title, category: a.category, date: a.date, description: a.description, files: a.files.slice(),
-    queueId: q.id, achId: a.id, sentISO: todayISO(), expiresISO: addDays(todayISO(), 7), status: 'open' };
-  DATA.emails.unshift(e); saveState();
-  return e;
+function sendApprovalEmail(a) { return VERIFIER_PEOPLE[a.verifier] ? { to: VERIFIER_PEOPLE[a.verifier] } : null; }
+
+function notifForRole() { return true; }
+function notifUnread(n) { return !!n.unread; }
+function notifBadge() { return (DATA.notifications || []).filter(n => n.unread).length; }
+function lecturerName() { return DATA.user.name; }
+function store(key, val) {                                    // small browser-only notes (like a message to show after a page change)
+  try { if (val === undefined) return sessionStorage.getItem(key); sessionStorage.setItem(key, val); } catch (e) { return null; }
 }
-function mailLink(e) { return location.href.replace(/[^/]*(\?.*)?$/, '') + 'email-approval.html?t=' + e.token; }
-function notifForRole(n) { return !n.to || n.to.indexOf(CURRENT_ROLE) > -1; }
-function notifUnread(n) { return n.isNew ? n.unread : (n.unread && !notificationsRead()); }
-function notifBadge() {
-  const base = notificationsRead() ? 0 : DATA.unreadBadge;
-  return base + DATA.notifications.filter(n => n.isNew && n.unread && notifForRole(n)).length;
-}
-function lecturerName() { return DATA.lecturers[0].name; }
 
 /* ---------- helpers ---------- */
 function fmtDate(iso, pad) {
@@ -142,56 +123,39 @@ function openModal({ title, body, actions, wide }) {
   return o;
 }
 
-/* ---------- uploaded files (kept in the browser so they can be previewed and downloaded) ---------- */
-const fileStore = {
-  db: null,
-  open() {
-    return new Promise((resolve, reject) => {
-      if (this.db) return resolve(this.db);
-      try {
-        const r = indexedDB.open('au_files', 1);
-        r.onupgradeneeded = () => r.result.createObjectStore('files');
-        r.onsuccess = () => { this.db = r.result; resolve(this.db); };
-        r.onerror = () => reject(r.error);
-      } catch (e) { reject(e); }
-    });
-  },
-  run(mode, fn) {
-    return this.open().then(db => new Promise((resolve, reject) => {
-      const tx = db.transaction('files', mode); const req = fn(tx.objectStore('files'));
-      tx.oncomplete = () => resolve(req && req.result);
-      tx.onerror = tx.onabort = () => reject(tx.error);
-    })).catch(() => null);
-  },
-  put(id, blob) { return this.run('readwrite', st => st.put(blob, id)); },
-  get(id)       { return this.run('readonly',  st => st.get(id)); },
-  del(id)       { return this.run('readwrite', st => st.delete(id)); }
-};
-
+/* ---------- uploaded files (stored on the server; only the owner and staff can open them) ---------- */
 function fileSize(bytes) { return bytes > 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB'; }
 function fileExt(name) { return name.split('.').pop().toUpperCase().replace('JPEG', 'JPG'); }
+const fileUrl = d => d.url || ('/api/files/' + encodeURIComponent(d.id));
 
 function downloadDoc(d) {
-  if (!d.id) { toast('This is a sample document from the demo data, so there is no file to download.'); return; }
-  fileStore.get(d.id).then(blob => {
-    if (!blob) { toast('That file is no longer stored in this browser.'); return; }
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = d.name; document.body.appendChild(a); a.click(); a.remove();
-  });
+  if (!d.id && !d.url) { toast('This is a sample document from the demo data, so there is no file to download.'); return; }
+  const a = document.createElement('a');
+  a.href = fileUrl(d) + (d.url ? '' : '?download=1'); a.download = d.name; document.body.appendChild(a); a.click(); a.remove();
 }
 
 function previewDoc(d) {
-  const sample = () => openModal({ title: esc(d.name), body: 'This is a sample document from the demo data, so there is no file to show. Files you upload yourself can be previewed here.' });
-  if (!d.id) { sample(); return; }
-  fileStore.get(d.id).then(blob => {
-    if (!blob) { sample(); return; }
-    const url = URL.createObjectURL(blob);
-    const body = /^image\//.test(blob.type)
-      ? `<img src="${url}" alt="${esc(d.name)}" style="max-width:100%;max-height:60vh;display:block;margin:0 auto;border-radius:8px">`
-      : `<iframe src="${url}" title="${esc(d.name)}" style="width:100%;height:60vh;border:1px solid var(--border);border-radius:8px"></iframe>`;
-    openModal({ wide: true, title: esc(d.name), body: body,
-      actions: [{ label: 'Close', secondary: true }, { label: 'Download', onClick: () => { downloadDoc(d); return false; } }] });
+  if (!d.id && !d.url) {
+    openModal({ title: esc(d.name), body: 'This is a sample document from the demo data, so there is no file to show. Files you upload yourself can be previewed here.' });
+    return;
+  }
+  const isImg = /^(PNG|JPG|JPEG)$/i.test(d.type || fileExt(d.name));
+  const body = isImg
+    ? `<img src="${fileUrl(d)}" alt="${esc(d.name)}" style="max-width:100%;max-height:60vh;display:block;margin:0 auto;border-radius:8px">`
+    : `<iframe src="${fileUrl(d)}" title="${esc(d.name)}" style="width:100%;height:60vh;border:1px solid var(--border);border-radius:8px"></iframe>`;
+  openModal({
+    wide: true, title: esc(d.name), body: body,
+    actions: [{ label: 'Close', secondary: true }, { label: 'Download', onClick: () => { downloadDoc(d); return false; } }]
   });
+}
+
+/* send one file to the server; the server checks that it really is a PDF, JPG or PNG */
+function uploadFile(file) {
+  return fetch('/api/files', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'X-CSRF-Token': CSRF, 'X-File-Name': encodeURIComponent(file.name), 'Content-Type': 'application/octet-stream' }, body: file
+  })
+    .then(r => r.json().catch(() => ({})).then(j => { if (!r.ok) throw new Error(j.error || 'The upload failed.'); return j; }));
 }
 
 /* The upload dialog: drop or choose files, see each one, choose what they are for, upload. */
@@ -222,7 +186,7 @@ function openUploadDialog(opts) {
   if (opts.preset) q('#up-link').value = opts.preset;
 
   function refresh() {
-    upBtn.disabled = !items.length || items.some(i => !i.done);
+    upBtn.disabled = !items.length;
     upBtn.textContent = items.length ? 'Upload ' + items.length + ' file' + (items.length > 1 ? 's' : '') : 'Upload';
   }
   function addFiles(list) {
@@ -230,20 +194,15 @@ function openUploadDialog(opts) {
       if (!/\.(pdf|jpe?g|png)$/i.test(f.name)) { toast(f.name + ' is not a PDF, JPG or PNG.'); return; }
       if (f.size > 5 * 1024 * 1024) { toast(f.name + ' is larger than 5 MB.'); return; }
       if (items.some(i => i.file.name === f.name && i.file.size === f.size)) { toast(f.name + ' is already in the list.'); return; }
-      const it = { file: f, done: false, pct: 0 };
+      const it = { file: f };
       const isImg = /^image\//.test(f.type);
       it.el = document.createElement('div'); it.el.className = 'up-row';
       it.el.innerHTML = `<div class="up-thumb">${isImg ? '<img alt="">' : icon('doc', 22)}</div>
-        <div class="up-meta"><strong>${esc(f.name)}</strong><span class="up-state">${fileSize(f.size)} · Uploading…</span>
+        <div class="up-meta"><strong>${esc(f.name)}</strong><span class="up-state">${fileSize(f.size)} · Ready</span>
           <div class="up-bar"><i style="width:0%"></i></div></div>
         <button type="button" class="icon-btn" aria-label="Remove ${esc(f.name)}">${icon('x', 16)}</button>`;
       if (isImg) { it.url = URL.createObjectURL(f); it.el.querySelector('img').src = it.url; }
-      it.el.querySelector('button').onclick = () => { clearInterval(it.timer); items.splice(items.indexOf(it), 1); it.el.remove(); refresh(); };
-      it.timer = setInterval(() => {
-        it.pct = Math.min(100, it.pct + 12 + Math.random() * 22);
-        it.el.querySelector('.up-bar i').style.width = it.pct + '%';
-        if (it.pct >= 100) { clearInterval(it.timer); it.done = true; it.el.querySelector('.up-state').textContent = fileSize(f.size) + ' · Ready'; it.el.classList.add('ready'); refresh(); }
-      }, 110);
+      it.el.querySelector('button').onclick = () => { items.splice(items.indexOf(it), 1); it.el.remove(); refresh(); };
       items.push(it); q('#up-list').appendChild(it.el);
     });
     refresh();
@@ -264,24 +223,24 @@ function openUploadDialog(opts) {
     upBtn.disabled = true; upBtn.textContent = 'Uploading…';
     const ach = link === '__transcript' ? null : DATA.achievements.find(a => a.id === +link);
     const linked = ach ? ach.title : 'Official transcript';
-    const puts = [], stamp = Date.now(); let added = 0;
-    items.forEach((it, i) => {
-      if (DATA.documents.some(d => d.name === it.file.name && d.linked === linked)) return;
-      const id = 'F' + stamp + '_' + i;
-      DATA.documents.push({ id: id, name: it.file.name, linked: linked, type: fileExt(it.file.name), date: todayISO(), status: 'pending', size: fileSize(it.file.size) });
-      puts.push(fileStore.put(id, it.file)); added++;
-      if (ach && ach.files.indexOf(it.file.name) === -1) {
-        ach.files.push(it.file.name);
-        ach.history.push({ when: todayISO(), text: 'Evidence added: ' + it.file.name });
-      }
+    // real upload with real progress: each bar fills as its file reaches the server
+    const jobs = items.map(it => {
+      it.el.querySelector('.up-bar i').style.width = '40%'; it.el.querySelector('.up-state').textContent = fileSize(it.file.size) + ' · Uploading…';
+      return uploadFile(it.file).then(r => {
+        it.el.querySelector('.up-bar i').style.width = '100%'; it.el.classList.add('ready'); it.el.querySelector('.up-state').textContent = fileSize(it.file.size) + ' · Uploaded';
+        return r;
+      }).catch(err => { it.el.querySelector('.up-state').textContent = err.message; it.el.querySelector('.up-state').style.color = 'var(--red)'; return null; });
     });
-    Promise.all(puts).then(() => {
-      if (added) {
-        notify(['Admin'], 'doc', 'amber', 'Document uploaded', DATA.user.name + ' uploaded ' + added + ' document' + (added > 1 ? 's' : '') + ' for ' + linked + '.');
-        logAudit('Created', added + ' document' + (added > 1 ? 's' : ''), 'Uploaded for ' + linked);
-      }
-      saveState(); o.close();
-      toast(added ? added + ' document' + (added > 1 ? 's' : '') + ' uploaded. Staff will review ' + (added > 1 ? 'them' : 'it') + '.' : 'Those files were already uploaded.');
+    Promise.all(jobs).then(done => {
+      const ok = done.filter(Boolean);
+      if (!ok.length) { upBtn.disabled = false; upBtn.textContent = 'Try again'; toast('None of the files could be uploaded.'); return; }
+      ok.forEach(r => {
+        DATA.documents.push({ id: r.id, name: r.name, linked: linked, type: '', date: todayISO(), status: 'pending', size: fileSize(r.size) });
+        if (ach && !ach.files.includes(r.name)) { ach.files.push(r.name); ach.history.push({ when: todayISO(), text: 'Evidence added: ' + r.name }); }
+      });
+      if (!saveState()) { o.close(); return; }
+      o.close();
+      toast(ok.length + ' document' + (ok.length > 1 ? 's' : '') + ' uploaded. Staff will review ' + (ok.length > 1 ? 'them' : 'it') + '.');
       if (opts.onDone) opts.onDone();
     });
   }
@@ -290,50 +249,80 @@ function openUploadDialog(opts) {
 
 /* ---------- shell: sidebar + top bar ---------- */
 const NAV_STUDENT = [
-  { group: 'Overview', items: [
-    { key: 'profile',      label: 'My Profile',       icon: 'user',   href: 'profile.html' },
-    { key: 'achievements', label: 'Achievements',     icon: 'award',  href: 'achievements.html' },
-    { key: 'academic',     label: 'Academic Record',  icon: 'book',   href: 'academic-record.html' },
-    { key: 'documents',    label: 'Documents',        icon: 'doc',    href: 'documents.html' }
-  ]},
-  { group: 'Support', items: [
-    { key: 'letters',      label: 'Letter Requests',  icon: 'inbox',  href: 'letter-requests.html' },
-    { key: 'sharing',      label: 'Sharing & Privacy', icon: 'shield', href: 'sharing.html' },
-    { key: 'notifications', label: 'Notifications',   icon: 'bell',   href: 'notifications.html', badge: true }
-  ]}
+  {
+    group: 'Career & Profile', items: [
+      { key: 'profile', label: 'My Profile', icon: 'user', href: 'profile.html' },
+      { key: 'academic', label: 'Academic Record', icon: 'book', href: 'academic-record.html' },
+      { key: 'achievements', label: 'Achievements', icon: 'award', href: 'achievements.html' },
+      { key: 'documents', label: 'Documents', icon: 'doc', href: 'documents.html' },
+      { key: 'opportunities', label: 'Opportunities & Board', icon: 'clipboard', href: 'opportunities.html' },
+      { key: 'cvMaker', label: 'CV Maker', icon: 'fileDown', href: 'cv-maker.html' }
+    ]
+  },
+  {
+    group: 'Support & Services', items: [
+      { key: 'letters', label: 'Letter Requests', icon: 'inbox', href: 'letter-requests.html' },
+      { key: 'premium', label: 'Premium Services', icon: 'award', href: 'premium.html' },
+      { key: 'sharing', label: 'Sharing & Privacy', icon: 'shield', href: 'sharing.html' },
+      { key: 'notifications', label: 'Notifications', icon: 'bell', href: 'notifications.html', badge: true }
+    ]
+  }
 ];
 
 const NAV_LECTURER = [
-  { group: 'Workspace', items: [
-    { key: 'find',          label: 'Find Students',   icon: 'search', href: 'find-students.html' },
-    { key: 'lecturerLetters', label: 'Letter Requests', icon: 'inbox', href: 'lecturer-letters.html' },
-    { key: 'drafts',        label: 'Drafts',          icon: 'doc',    href: 'drafts.html' },
-    { key: 'notifications', label: 'Notifications',   icon: 'bell',   href: 'notifications.html', badge: true }
-  ]}
+  {
+    group: 'Workspace', items: [
+      { key: 'find', label: 'Find Students', icon: 'search', href: 'find-students.html' },
+      { key: 'opportunities', label: 'Opportunities Board', icon: 'clipboard', href: 'opportunities.html' },
+      { key: 'lecturerLetters', label: 'Letter Requests', icon: 'inbox', href: 'lecturer-letters.html' },
+      { key: 'drafts', label: 'Drafts', icon: 'doc', href: 'drafts.html' },
+      { key: 'reports', label: 'Analytics & Reports', icon: 'activity', href: 'reports.html' },
+      { key: 'notifications', label: 'Notifications', icon: 'bell', href: 'notifications.html', badge: true }
+    ]
+  }
+];
+
+const NAV_SUPERVISOR = [
+  {
+    group: 'Attachment Supervision', items: [
+      { key: 'find', label: 'Attached Students', icon: 'search', href: 'find-students.html' },
+      { key: 'opportunities', label: 'Opportunities & Board', icon: 'clipboard', href: 'opportunities.html' },
+      { key: 'lecturerLetters', label: 'Supervisor Letters & Assessments', icon: 'inbox', href: 'lecturer-letters.html' },
+      { key: 'drafts', label: 'Drafts', icon: 'doc', href: 'drafts.html' },
+      { key: 'reports', label: 'Analytics & Reports', icon: 'activity', href: 'reports.html' },
+      { key: 'notifications', label: 'Notifications', icon: 'bell', href: 'notifications.html', badge: true }
+    ]
+  }
 ];
 
 const NAV_ADMIN = [
-  { group: 'Administration', items: [
-    { key: 'queue',   label: 'Verification Queue',    icon: 'clipboard', href: 'verification-queue.html' },
-    { key: 'users',   label: 'Users & Permissions',   icon: 'users',     href: 'users.html' },
-    { key: 'import',  label: 'Academic Data Import',  icon: 'upload',    href: 'data-import.html' }
-  ]},
-  { group: 'Monitoring', items: [
-    { key: 'audit',   label: 'Audit Log',             icon: 'history',   href: 'audit-log.html' },
-    { key: 'reports', label: 'Reports',               icon: 'activity',  href: 'reports.html' },
-    { key: 'notifications', label: 'Notifications',   icon: 'bell',      href: 'notifications.html', badge: true }
-  ]}
+  {
+    group: 'Administration', items: [
+      { key: 'queue', label: 'Verification Queue', icon: 'clipboard', href: 'verification-queue.html' },
+      { key: 'users', label: 'Users & Permissions', icon: 'users', href: 'users.html' },
+      { key: 'opportunities', label: 'Opportunities Board', icon: 'clipboard', href: 'opportunities.html' },
+      { key: 'premium', label: 'Premium Requests', icon: 'award', href: 'premium.html' },
+      { key: 'import', label: 'Academic Data Import', icon: 'upload', href: 'data-import.html' }
+    ]
+  },
+  {
+    group: 'Monitoring', items: [
+      { key: 'reports', label: 'Analytics & Reports', icon: 'activity', href: 'reports.html' },
+      { key: 'audit', label: 'Audit Log', icon: 'history', href: 'audit-log.html' },
+      { key: 'notifications', label: 'Notifications', icon: 'bell', href: 'notifications.html', badge: true }
+    ]
+  }
 ];
 
-const NAV = CURRENT_ROLE === 'Lecturer' ? NAV_LECTURER : CURRENT_ROLE === 'Admin' ? NAV_ADMIN : NAV_STUDENT;
-const ROLE_HOME = { Student: 'profile.html', Alumni: 'profile.html', Lecturer: 'find-students.html', Admin: 'verification-queue.html' };
+const NAV = CURRENT_ROLE === 'Lecturer' ? NAV_LECTURER : CURRENT_ROLE === 'Supervisor' ? NAV_SUPERVISOR : CURRENT_ROLE === 'Admin' ? NAV_ADMIN : NAV_STUDENT;
+const ROLE_HOME = { Student: 'profile.html', Alumni: 'profile.html', Lecturer: 'find-students.html', Supervisor: 'find-students.html', Admin: 'verification-queue.html' };
 
 function buildShell() {
   if (!document.getElementById('sidebar')) return;   // standalone pages have no portal shell
   const page = document.body.dataset.page;
   // if this page belongs to a different role's portal, go to this role's home page
   const allKeys = NAV.reduce((acc, g) => acc.concat(g.items.map(i => i.key)), []);
-  if (allKeys.indexOf(page) === -1) { window.location.replace(ROLE_HOME[CURRENT_ROLE]); return; }
+  if (allKeys.indexOf(page) === -1 && page !== 'account') { window.location.replace(ROLE_HOME[CURRENT_ROLE]); return; }
   const u = DATA.user;
   const badge = notifBadge();
 
@@ -342,7 +331,7 @@ function buildShell() {
       <div class="brand-mark">${icon('cap', 20)}</div>
       <div class="brand-name">AU Student Achievement &amp; Recommendation Profile</div>
     </div>
-    <div class="portal-label">${u.portal}</div>
+    <div class="portal-label">${esc(u.portal)}</div>
     <nav class="nav">
       ${NAV.map(g => `
         <div class="nav-group">${g.group}</div>
@@ -372,16 +361,16 @@ function buildShell() {
       <div class="user-wrap">
         <button class="user-btn" id="user-btn" aria-haspopup="true">
           <div class="avatar">${u.initials}</div>
-          <div class="user-info"><strong>${u.name}</strong><span>${u.subtitle}</span></div>
+          <div class="user-info"><strong>${esc(u.name)}${(u.premium && u.premium.state === 'premium') ? ' <span class="badge-premium">PREMIUM</span>' : ''}</strong><span>${esc(u.subtitle)}</span></div>
           ${icon('down', 18)}
         </button>
         <div class="menu" id="user-menu">
-          <div class="menu-label">Switch prototype view</div>
-          ${['Student', 'Alumni', 'Lecturer', 'Admin'].map(r => `
-            <button data-role="${r}" class="${r === CURRENT_ROLE ? 'current' : ''}">${r}${r === CURRENT_ROLE ? icon('check', 18) : ''}</button>`).join('')}
+          <div class="menu-label">Signed in as</div>
+          <div style="padding:0 12px 10px"><div style="font-weight:600;font-size:14px">${esc(u.name)}</div><div style="font-size:12px;color:var(--muted)">${esc(u.email)} · ${esc(CURRENT_ROLE)}</div>${(u.premium && u.premium.state === 'premium') ? '<div style="margin-top:4px"><span class="badge-premium">Premium Active</span></div>' : ''}</div>
           <hr>
-          <button id="open-mailbox">Demo mailbox</button>
-          <button id="reset-demo">Reset demo data</button>
+          ${(CURRENT_ROLE === 'Student' || CURRENT_ROLE === 'Alumni') ? '<button onclick="location.href=\'premium.html\'">Premium Career Services</button>' : ''}
+          <button id="open-account">Account &amp; security</button>
+          ${DATA.dev ? '<button id="open-mailbox">Demo mailbox</button>' : ''}
           <button class="signout" id="signout">Sign out</button>
         </div>
       </div>
@@ -391,19 +380,11 @@ function buildShell() {
   const menu = document.getElementById('user-menu');
   document.getElementById('user-btn').onclick = e => { e.stopPropagation(); menu.classList.toggle('open'); };
   document.addEventListener('click', e => { if (!menu.contains(e.target)) menu.classList.remove('open'); });
-  menu.querySelectorAll('[data-role]').forEach(b => b.onclick = () => {
-    menu.classList.remove('open');
-    const r = b.dataset.role;
-    if (r === CURRENT_ROLE) return;
-    store('au_role', r);
-    window.location.href = ROLE_HOME[r];
-  });
-  document.getElementById('open-mailbox').onclick = () => { window.location.href = 'mailbox.html'; };
-  document.getElementById('reset-demo').onclick = () => {
-    try { sessionStorage.removeItem('au_state'); sessionStorage.removeItem('au_read'); indexedDB.deleteDatabase('au_files'); } catch (e) {}
-    window.location.reload();
+  document.getElementById('open-account').onclick = () => { window.location.href = 'account.html'; };
+  const mb = document.getElementById('open-mailbox'); if (mb) mb.onclick = () => { window.location.href = 'mailbox.html'; };
+  document.getElementById('signout').onclick = () => {
+    apiAsync('POST', '/api/logout').then(() => { window.location.href = '/index.html'; });
   };
-  document.getElementById('signout').onclick = () => { window.location.href = '../index.html'; };
 
   // mobile sidebar
   const sb = document.getElementById('sidebar');
@@ -420,5 +401,5 @@ function flash(msg) { store('au_flash', msg); }
 document.addEventListener('DOMContentLoaded', () => {
   buildShell();
   const f = store('au_flash');
-  if (f) { try { sessionStorage.removeItem('au_flash'); } catch (e) {} toast(f); }
+  if (f) { try { sessionStorage.removeItem('au_flash'); } catch (e) { } toast(f); }
 });

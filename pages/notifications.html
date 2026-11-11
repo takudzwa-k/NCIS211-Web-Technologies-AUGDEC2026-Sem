@@ -41,8 +41,7 @@
     }).join('') : '<div class="empty"><strong>You are all caught up</strong>New updates will appear here.</div>';
   }
   document.getElementById('mark').onclick = () => {
-    store('au_read', '1');
-    DATA.notifications.forEach(n => { if (notifForRole(n)) n.unread = false; });
+    DATA.notifications.forEach(n => { n.unread = false; });
     saveState(); render();
     const b = document.getElementById('nav-badge'); if (b) b.remove();
     const d = document.getElementById('bell-dot'); if (d) d.remove();

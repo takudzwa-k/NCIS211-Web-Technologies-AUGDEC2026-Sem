@@ -77,7 +77,6 @@
         body: esc(d.name) + ' has not been reviewed yet. It will be removed from your profile.',
         actions: [{ label: 'Keep it', secondary: true }, { label: 'Remove', danger: true, secondary: true, onClick: () => {
           DATA.documents.splice(DATA.documents.indexOf(d), 1);
-          if (d.id) fileStore.del(d.id);
           const a = DATA.achievements.find(x => x.title === d.linked);
           if (a) a.files = a.files.filter(f => f !== d.name);
           logAudit('Deleted', d.name, 'Removed by ' + DATA.user.name);

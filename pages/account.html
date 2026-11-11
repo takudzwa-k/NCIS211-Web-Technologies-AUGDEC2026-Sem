@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Account & security · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-page="account">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Account &amp; security</h1>
+          <p>Your password, sign-in checks and the devices signed in to your account.</p>
+        </div>
+      </div>
+
+      <div class="two-col-eq" style="margin-top:0">
+        <section class="card card-pad">
+          <h2>Change password</h2>
+          <div class="sub" style="margin-bottom:18px">Other devices are signed out when you change it.</div>
+          <div class="notice" id="pw-notice" style="display:none;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:14px"></div>
+          <form id="pw-form" novalidate>
+            <div class="fld"><label for="cur">Current password</label><input id="cur" type="password" autocomplete="current-password"></div>
+            <div class="fld"><label for="nw">New password</label><input id="nw" type="password" autocomplete="new-password"><div class="hint">At least 10 characters. Mix letters, numbers and symbols, or use a long phrase.</div></div>
+            <div class="fld"><label for="nw2">Confirm new password</label><input id="nw2" type="password" autocomplete="new-password"></div>
+            <button class="btn" type="submit">Change password</button>
+          </form>
+        </section>
+        <section class="card card-pad">
+          <h2>Two-step verification</h2>
+          <div class="sub">A one-time code is emailed to you every time you sign in.</div>
+          <div class="set-row" style="margin-top:18px"><div><strong id="ts-title">Two-step verification</strong><span id="ts-sub"></span></div><input type="checkbox" class="toggle" id="ts" aria-label="Two-step verification"></div>
+          <div class="set-row"><div><strong>Signed in as</strong><span id="who"></span></div></div>
+          <div class="set-row"><div><strong>Password last changed</strong><span id="pwc"></span></div></div>
+        </section>
+      </div>
+
+      <section class="card stack-gap">
+        <div class="card-top"><div><h2>Devices signed in</h2><div class="sub">Sign out any you do not recognise. You are signed out automatically after an hour of inactivity.</div></div>
+          <button class="btn secondary" id="out-others">Sign out all other devices</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Device</th><th>Network address</th><th>Signed in</th><th>Last active</th><th></th></tr></thead><tbody id="sessions"></tbody></table></div>
+      </section>
+
+      <section class="card stack-gap">
+        <div class="card-top"><div><h2>Recent sign-in activity</h2><div class="sub">Including attempts that failed. If something looks wrong, change your password.</div></div></div>
+        <div class="table-wrap"><table><thead><tr><th>When</th><th>Result</th><th>Network address</th><th>Device</th></tr></thead><tbody id="logins"></tbody></table></div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  const when = ms => { const d = new Date(ms); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
+  const ago = ms => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? 'Just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : when(ms); };
+  function uaName(ua) {
+    const b = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+    const o = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
+    return b + (o ? ' on ' + o : '');
+  }
+  const say = (id, text, ok) => { const n = document.getElementById(id); n.textContent = text; n.style.display = text ? 'block' : 'none'; n.style.background = ok ? 'var(--green-tint)' : 'var(--red-soft)'; n.style.color = ok ? 'var(--green)' : 'var(--red)'; };
+
+  function load() {
+    apiAsync('GET', '/api/account').then(r => {
+      const a = r.json;
+      document.getElementById('who').textContent = a.name + ' · ' + a.email + ' · ' + a.role;
+      document.getElementById('pwc').textContent = a.pwChanged ? when(a.pwChanged) : 'Not recorded';
+      const ts = document.getElementById('ts'); ts.checked = a.twoStep; ts.disabled = !a.canToggle;
+      document.getElementById('ts-sub').textContent = a.canToggle ? 'You can turn this off, but your account is safer with it on.' : 'Always on for staff accounts.';
+      document.getElementById('sessions').innerHTML = a.sessions.map(s => `<tr><td class="strong">${esc(uaName(s.ua))}${s.current ? ' ' + pill('verified', 'This device') : ''}</td><td>${esc(s.ip)}</td><td>${when(s.created)}</td><td>${ago(s.lastSeen)}</td>
+        <td>${s.current ? '' : `<button class="btn-ghost" data-h="${s.handle}">Sign out</button>`}</td></tr>`).join('');
+      document.querySelectorAll('[data-h]').forEach(b => b.onclick = () => apiAsync('POST', '/api/account/sessions/revoke', { handle: b.dataset.h }).then(() => { toast('Device signed out.'); load(); }));
+      document.getElementById('logins').innerHTML = a.logins.length ? a.logins.map(l => `<tr><td>${when(l.at)}</td><td>${l.ok ? pill('verified', 'Signed in') : pill('rejected', esc(l.reason || 'Failed'))}</td><td>${esc(l.ip)}</td><td>${esc(uaName(l.ua))}</td></tr>`).join('')
+        : '<tr><td colspan="4" class="empty">No activity yet.</td></tr>';
+    });
+  }
+
+  document.getElementById('pw-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const cur = document.getElementById('cur').value, nw = document.getElementById('nw').value;
+    if (nw !== document.getElementById('nw2').value) return say('pw-notice', 'The two new passwords do not match.');
+    apiAsync('POST', '/api/account/password', { current: cur, next: nw }).then(r => {
+      if (r.status !== 200) return say('pw-notice', (r.json && r.json.error) || 'Could not change the password.');
+      say('pw-notice', 'Password changed. Other devices were signed out.', true); e.target.reset(); load();
+    });
+  });
+  document.getElementById('out-others').onclick = () => apiAsync('POST', '/api/account/sessions/revoke', { handle: 'others' }).then(() => { toast('All other devices were signed out.'); load(); });
+
+  const ts = document.getElementById('ts');
+  ts.onchange = () => {
+    const want = ts.checked; ts.checked = !want;                     // only change it after the password is confirmed
+    openModal({ title: want ? 'Turn on two-step verification' : 'Turn off two-step verification',
+      body: `<p style="margin-bottom:14px">${want ? 'You will be asked for an emailed code each time you sign in.' : 'Your account will be protected by your password alone.'} Enter your password to confirm.</p>
+             <div class="fld" style="margin:0"><label for="cp">Current password</label><input id="cp" type="password" autocomplete="current-password"></div>`,
+      actions: [{ label: 'Cancel', secondary: true }, { label: 'Confirm', onClick: o => {
+        const pw = document.getElementById('cp').value;
+        apiAsync('POST', '/api/account/two-step', { on: want, password: pw }).then(r => { if (r.status !== 200) toast((r.json && r.json.error) || 'Could not change that.'); else { toast('Two-step verification ' + (want ? 'is on.' : 'is off.')); } load(); });
+      } }] });
+  };
+  load();
+</script>
+</body>
+</html>

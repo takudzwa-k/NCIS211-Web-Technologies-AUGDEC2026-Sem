@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CV Maker · AU Student Achievement &amp; Recommendation Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .cv-layout { display: grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start; }
+    @media (max-width: 1080px) { .cv-layout { grid-template-columns: 1fr; } }
+
+    /* Builder Form Panel */
+    .builder-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
+    .builder-card h2 { font-size: 17px; margin: 0 0 16px; color: #111827; }
+    .b-section { border-top: 1px solid #f3f4f6; padding-top: 16px; margin-top: 16px; }
+    .b-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+    .b-section h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; font-weight: 700; }
+    .theme-picker { display: flex; gap: 8px; margin-bottom: 12px; }
+    .theme-dot { width: 28px; height: 28px; border-radius: 999px; border: 2px solid #fff; box-shadow: 0 0 0 1px #d1d5db; cursor: pointer; transition: transform .15s; }
+    .theme-dot.active { transform: scale(1.15); box-shadow: 0 0 0 2px var(--red); }
+
+    /* CV Document Preview Canvas */
+    .preview-canvas { background: #525659; border-radius: 12px; padding: 28px; display: flex; flex-direction: column; align-items: center; min-height: 850px; }
+    .cv-paper {
+      background: #fff; width: 100%; max-width: 760px; min-height: 980px;
+      padding: 48px 54px; box-shadow: 0 12px 36px rgba(0,0,0,0.22); border-radius: 4px;
+      color: #1f2937; line-height: 1.55; font-family: 'Inter', -apple-system, sans-serif;
+      box-sizing: border-box; position: relative;
+    }
+
+    /* Template Styles */
+    .tpl-academic { font-family: 'Lora', Georgia, serif; }
+    .tpl-academic h1 { font-family: 'Lora', Georgia, serif; font-size: 26px; }
+    .tpl-academic h2 { font-family: 'Lora', Georgia, serif; text-transform: uppercase; font-size: 13px; letter-spacing: .08em; border-bottom: 1.5px solid var(--cv-accent, #c8102e); padding-bottom: 3px; margin: 22px 0 10px; color: var(--cv-accent, #c8102e); }
+
+    .tpl-modern { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .tpl-modern h1 { font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
+    .tpl-modern h2 { text-transform: uppercase; font-size: 12px; font-weight: 800; letter-spacing: .08em; color: var(--cv-accent, #c8102e); margin: 24px 0 10px; display: flex; align-items: center; gap: 8px; }
+    .tpl-modern h2::after { content: ""; flex: 1; height: 1.5px; background: #e5e7eb; }
+
+    .tpl-executive { font-family: 'Plus Jakarta Sans', sans-serif; border-top: 6px solid var(--cv-accent, #c8102e); }
+    .tpl-executive h1 { font-size: 28px; font-weight: 800; }
+    .tpl-executive h2 { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--cv-accent, #c8102e); border-bottom: 2px solid var(--cv-accent, #c8102e); padding-bottom: 4px; margin: 24px 0 10px; }
+
+    .cv-header { margin-bottom: 20px; }
+    .cv-header h1 { margin: 0 0 4px; line-height: 1.15; }
+    .cv-sub { font-size: 13px; color: #4b5563; }
+    .cv-contact { font-size: 12px; color: #6b7280; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 12px; }
+    .cv-entry { margin-bottom: 12px; }
+    .cv-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; font-size: 13.5px; }
+    .cv-date { font-size: 12px; color: #6b7280; font-weight: 500; }
+    .cv-desc { font-size: 12.5px; color: #4b5563; margin-top: 2px; }
+    .cv-skills-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .cv-skill-pill { background: #f3f4f6; color: #374151; font-size: 11.5px; font-weight: 500; padding: 2px 8px; border-radius: 4px; }
+
+    /* Print View */
+    @media print {
+      body * { visibility: hidden; }
+      .sidebar, .topbar, .page-head, .builder-card, .preview-toolbar, .toast { display: none !important; }
+      .preview-canvas { background: none !important; padding: 0 !important; margin: 0 !important; }
+      .cv-paper, .cv-paper * { visibility: visible; }
+      .cv-paper { position: absolute; left: 0; top: 0; width: 100% !important; max-width: 100% !important; box-shadow: none !important; padding: 24px 30px !important; }
+    }
+  </style>
+</head>
+<body data-page="cvMaker">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>CV Maker</h1>
+          <p>Assemble and export a verified, institutionally backed CV in seconds.</p>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn secondary" id="reset-cv">Reset</button>
+          <button class="btn" id="print-cv"></button>
+        </div>
+      </div>
+
+      <div class="cv-layout">
+        <!-- Controls Column -->
+        <section class="builder-card">
+          <h2>CV Settings &amp; Sections</h2>
+
+          <div class="b-section">
+            <h3>Choose Template</h3>
+            <div class="fld" style="margin-bottom:10px">
+              <select id="tpl-select">
+                <option value="modern" selected>Modern Professional (Clean)</option>
+                <option value="academic">Academic &amp; Research (Classic Serif)</option>
+                <option value="executive">Executive AU Certified (Career Services)</option>
+              </select>
+            </div>
+            <div class="theme-picker" id="theme-colors">
+              <div class="theme-dot active" data-color="#C8102E" style="background:#C8102E" title="AU Crimson"></div>
+              <div class="theme-dot" data-color="#1E3A8A" style="background:#1E3A8A" title="Navy Blue"></div>
+              <div class="theme-dot" data-color="#065F46" style="background:#065F46" title="Emerald Green"></div>
+              <div class="theme-dot" data-color="#1E293B" style="background:#1E293B" title="Slate Charcoal"></div>
+            </div>
+          </div>
+
+          <div class="b-section">
+            <h3>Career Summary</h3>
+            <div class="fld" style="margin-bottom:0">
+              <textarea id="cv-summary" rows="3" placeholder="Brief 2-3 sentence career objective or summary..."></textarea>
+            </div>
+          </div>
+
+          <div class="b-section">
+            <h3>Academic Credentials</h3>
+            <label class="check-row" style="margin-bottom:8px">
+              <div><strong>Include Cumulative GPA</strong><span id="gpa-hint"></span></div>
+              <input type="checkbox" id="chk-gpa" checked>
+            </label>
+            <label class="check-row">
+              <div><strong>Include Course Highlights</strong><span>Top academic courses with grades</span></div>
+              <input type="checkbox" id="chk-courses" checked>
+            </label>
+          </div>
+
+          <div class="b-section">
+            <h3>Verified Achievements</h3>
+            <div class="sub" style="font-size:12px;margin-bottom:8px">Select achievements verified by university staff:</div>
+            <div id="ach-picker" style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
+          </div>
+
+          <div class="b-section">
+            <h3>Industrial Attachment &amp; Experience</h3>
+            <div class="fld">
+              <label for="exp-company">Company / Organisation</label>
+              <input id="exp-company" type="text" value="Econet Wireless Zimbabwe">
+            </div>
+            <div class="fld">
+              <label for="exp-role">Role / Position</label>
+              <input id="exp-role" type="text" value="Industrial Attachment Trainee — Software Engineering">
+            </div>
+            <div class="fld">
+              <label for="exp-dates">Duration</label>
+              <input id="exp-dates" type="text" value="Feb 2026 – Present">
+            </div>
+            <div class="fld" style="margin-bottom:0">
+              <label for="exp-notes">Responsibilities &amp; Impact</label>
+              <textarea id="exp-notes" rows="2">Contributed to core microservices architecture, automated integration testing, and collaborated with industrial supervisors on production deployments.</textarea>
+            </div>
+          </div>
+
+          <div class="b-section">
+            <h3>Referees</h3>
+            <label class="check-row" style="margin-bottom:8px">
+              <div><strong>Academic Referee</strong><span>Dr. N. Dube (Department of Computer Science)</span></div>
+              <input type="checkbox" id="chk-ref-dube" checked>
+            </label>
+            <label class="check-row">
+              <div><strong>Attachment Supervisor</strong><span>Mrs. R. Phiri (Industrial Attachment Supervisor)</span></div>
+              <input type="checkbox" id="chk-ref-phiri" checked>
+            </label>
+          </div>
+        </section>
+
+        <!-- Preview Column -->
+        <section class="preview-canvas">
+          <div class="cv-paper tpl-modern" id="cv-paper">
+            <!-- Rendered Live via JS -->
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+<div id="toast-root"></div>
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  const u = DATA.user, a = DATA.academic || { gpa: '3.59', class: 'Upper Second Class', credits: 180, totalCredits: 360, courses: [] };
+  const isPrem = u.premium && u.premium.state === 'premium';
+  const contact = () => (DATA.contact && DATA.contact[CURRENT_ROLE]) || { phone: '+263 77 ••• ••45', backup: '' };
+  const skills = () => {
+    const list = (DATA.skills && DATA.skills[CURRENT_ROLE]) || [];
+    return list.length ? list : [
+      { name: 'Python', type: 'Technical' },
+      { name: 'Web Technologies', type: 'Technical' },
+      { name: 'Database Systems', type: 'Technical' },
+      { name: 'REST APIs', type: 'Technical' },
+      { name: 'English', type: 'Language' },
+      { name: 'Shona', type: 'Language' }
+    ];
+  };
+  document.getElementById('print-cv').innerHTML = icon('printer', 18) + ' Print or Save PDF';
+
+  // Pre-fill summary
+  document.getElementById('cv-summary').value = `Dedicated ${u.programme ? u.programme.split(' in ')[1] || u.programme : 'Computer Science'} student at Africa University with verified technical proficiencies, strong academic performance, and practical industry attachment experience. Committed to delivering innovative software and systems solutions.`;
+  document.getElementById('gpa-hint').textContent = `Official GPA: ${a.gpa} (${a.class})`;
+
+  // Render achievement check options
+  const achs = DATA.achievements.filter(x => x.status === 'verified');
+  const achPicker = document.getElementById('ach-picker');
+  if (!achs.length) {
+    achPicker.innerHTML = '<div style="font-size:12px;color:var(--muted)">No verified achievements recorded yet.</div>';
+  } else {
+    achPicker.innerHTML = achs.map(x => `
+      <label class="check-row" style="font-size:12px;padding:6px 0;margin:0">
+        <div><strong>${esc(x.title)}</strong><span style="font-size:11px">${esc(x.category)} · ${x.tier || 'Verified'}</span></div>
+        <input type="checkbox" name="cv-ach" value="${x.id}" checked>
+      </label>`).join('');
+  }
+
+  let activeColor = '#C8102E';
+  let activeTemplate = 'modern';
+
+  // Template switch
+  document.getElementById('tpl-select').addEventListener('change', e => {
+    if (e.target.value === 'executive' && !isPrem) {
+      openModal({
+        title: 'Executive Certified Template',
+        body: 'The Executive AU Certified CV template includes official Africa University watermark styling, cryptographic authenticity seals, and career services validation. Upgrade to Premium Career Services to unlock this template.',
+        actions: [
+          { label: 'Keep Standard', secondary: true, onClick: () => { document.getElementById('tpl-select').value = activeTemplate; } },
+          { label: 'View Premium Services', onClick: () => { window.location.href = 'premium.html'; } }
+        ]
+      });
+      return;
+    }
+    activeTemplate = e.target.value;
+    updateCV();
+  });
+
+  // Color picker
+  document.querySelectorAll('.theme-dot').forEach(dot => {
+    dot.onclick = () => {
+      document.querySelectorAll('.theme-dot').forEach(d => d.classList.remove('active'));
+      dot.classList.add('active');
+      activeColor = dot.dataset.color;
+      updateCV();
+    };
+  });
+
+  // Live updates
+  ['cv-summary', 'chk-gpa', 'chk-courses', 'exp-company', 'exp-role', 'exp-dates', 'exp-notes', 'chk-ref-dube', 'chk-ref-phiri'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateCV);
+  });
+  achPicker.addEventListener('change', updateCV);
+
+  function updateCV() {
+    const paper = document.getElementById('cv-paper');
+    paper.className = 'cv-paper tpl-' + activeTemplate;
+    paper.style.setProperty('--cv-accent', activeColor);
+
+    const summary = document.getElementById('cv-summary').value.trim();
+    const showGPA = document.getElementById('chk-gpa').checked;
+    const showCourses = document.getElementById('chk-courses').checked;
+    const expCo = document.getElementById('exp-company').value.trim();
+    const expRole = document.getElementById('exp-role').value.trim();
+    const expDates = document.getElementById('exp-dates').value.trim();
+    const expNotes = document.getElementById('exp-notes').value.trim();
+    const refDube = document.getElementById('chk-ref-dube').checked;
+    const refPhiri = document.getElementById('chk-ref-phiri').checked;
+
+    const checkedAchIds = [...document.querySelectorAll('[name=cv-ach]:checked')].map(c => +c.value);
+    const chosenAchs = achs.filter(x => checkedAchIds.includes(x.id));
+    const sk = skills();
+
+    const refCode = 'AU-VERIFIED-CV-' + (u.studentId || '230184') + '-' + todayISO().replace(/-/g, '');
+
+    paper.innerHTML = `
+      <div class="cv-header">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <h1 style="color:${activeColor}">${esc(u.name)}</h1>
+            <div class="cv-sub">${esc(u.programme)} · ${esc(u.faculty)} · Africa University</div>
+            <div class="cv-contact">
+              <span>${esc(u.email)}</span>
+              <span>${esc(contact().phone || '+263 77 ••• ••45')}</span>
+              <span>Student ID: ${esc(u.studentId || '230184')}</span>
+            </div>
+          </div>
+          ${isPrem ? `
+          <div style="text-align:right">
+            <span class="badge-premium" style="font-size:10px;padding:3px 8px">PREMIUM VERIFIED</span>
+            <div style="font-size:10px;color:#6b7280;margin-top:4px">Ref: ${refCode}</div>
+          </div>` : ''}
+        </div>
+      </div>
+
+      ${summary ? `
+        <h2>Professional Summary</h2>
+        <div class="cv-desc" style="font-size:13px;line-height:1.6">${esc(summary)}</div>
+      ` : ''}
+
+      <h2>Education &amp; Academic Credentials</h2>
+      <div class="cv-entry">
+        <div class="cv-row">
+          <span>Africa University, Mutare, Zimbabwe</span>
+          <span class="cv-date">${u.entry || 2023} – Present</span>
+        </div>
+        <div class="cv-desc" style="font-weight:600;color:#374151">${esc(u.programme)}</div>
+        ${showGPA && a.gpa ? `<div class="cv-desc" style="margin-top:3px"><b>Cumulative GPA:</b> ${a.gpa} (${a.class}) · Completed ${a.credits} of ${a.totalCredits} programme credits</div>` : ''}
+        ${showCourses && a.courses && a.courses.length ? `
+          <div class="cv-desc" style="margin-top:4px"><b>Key Coursework:</b> ${a.courses.slice(0, 6).map(c => esc(c.name) + ' (' + c.grade + ')').join(', ')}</div>
+        ` : ''}
+      </div>
+
+      ${expCo ? `
+        <h2>Practical Experience &amp; Industrial Attachment</h2>
+        <div class="cv-entry">
+          <div class="cv-row">
+            <span>${esc(expRole)} — ${esc(expCo)}</span>
+            <span class="cv-date">${esc(expDates)}</span>
+          </div>
+          <div class="cv-desc" style="margin-top:4px">${esc(expNotes)}</div>
+        </div>
+      ` : ''}
+
+      ${chosenAchs.length ? `
+        <h2>Verified Achievements &amp; Honours</h2>
+        ${chosenAchs.map(x => `
+          <div class="cv-entry">
+            <div class="cv-row">
+              <span>${esc(x.title)}</span>
+              <span class="cv-date">${fmtDate(x.date)}</span>
+            </div>
+            <div class="cv-desc">${esc(x.category)}${x.tier ? ' · ' + esc(x.tier) + ' Recognition' : ''} · Confirmed by ${esc(x.verifiedBy || 'University Staff')}</div>
+            ${x.description ? `<div class="cv-desc" style="font-size:12px;color:#6b7280;margin-top:2px">${esc(x.description)}</div>` : ''}
+          </div>
+        `).join('')}
+      ` : ''}
+
+      ${sk.length ? `
+        <h2>Skills &amp; Competencies</h2>
+        <div class="cv-skills-list">
+          ${sk.map(s => `<span class="cv-skill-pill">${esc(s.name)}</span>`).join('')}
+        </div>
+      ` : ''}
+
+      ${(refDube || refPhiri) ? `
+        <h2>Referees</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px">
+          ${refDube ? `
+            <div class="cv-desc">
+              <strong>Dr. N. Dube</strong><br>
+              Senior Lecturer, Department of Computer Science<br>
+              Africa University · n.dube@africau.edu
+            </div>
+          ` : ''}
+          ${refPhiri ? `
+            <div class="cv-desc">
+              <strong>Mrs. R. Phiri</strong><br>
+              Industrial Attachment Supervisor<br>
+              Econet Wireless / Industrial Partner · r.phiri@attachment.africau.edu
+            </div>
+          ` : ''}
+        </div>
+      ` : ''}
+
+      <div style="margin-top:36px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;display:flex;justify-content:space-between;align-items:center">
+        <span>Verified Africa University Student Profile · Generated ${fmtDate(todayISO())}</span>
+        ${isPrem ? `<span class="badge-premium" style="font-size:9px">Authenticity Code: ${refCode}</span>` : '<span>Authenticity: portal.africau.edu</span>'}
+      </div>
+    `;
+  }
+
+  document.getElementById('print-cv').onclick = () => window.print();
+  document.getElementById('reset-cv').onclick = () => {
+    document.getElementById('cv-summary').value = `Dedicated student at Africa University with verified academic credentials and practical experience.`;
+    updateCV();
+    toast('CV reset to default values.');
+  };
+
+  updateCV();
+</script>
+</body>
+</html>

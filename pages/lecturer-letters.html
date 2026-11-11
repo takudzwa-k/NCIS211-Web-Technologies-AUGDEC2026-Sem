@@ -15,8 +15,8 @@
     <main class="content">
       <div class="page-head">
         <div>
-          <h1>Letter Requests</h1>
-          <p>Review and manage requests from students and alumni.</p>
+          <h1 id="page-title">Letter Requests</h1>
+          <p id="page-desc">Review and manage requests from students and alumni.</p>
         </div>
         <a class="btn secondary" id="add-btn" href="add-achievement.html"></a>
       </div>
@@ -48,6 +48,11 @@
 <script src="../js/data.js"></script>
 <script src="../js/app.js"></script>
 <script>
+  if (CURRENT_ROLE === 'Supervisor') {
+    document.title = 'Supervisor Letters & Assessments · AU Student Achievement & Recommendation Profile';
+    document.getElementById('page-title').textContent = 'Supervisor Letters & Assessments';
+    document.getElementById('page-desc').textContent = 'Review and manage assessment requests from attached students.';
+  }
   const R = DATA.lecturerRequests;
   const LABEL = { sent: 'Sent', accepted: 'Accepted', progress: 'In progress', completed: 'Completed', declined: 'Declined' };
   const PILL = { sent: 'progress', accepted: 'progress', progress: 'progress', completed: 'completed', declined: 'declined' };
@@ -84,7 +89,7 @@
     document.getElementById('empty').style.display = rows.length ? 'none' : 'block';
     document.getElementById('rows').innerHTML = rows.map(x => `
       <tr>
-        <td class="strong">${esc(x.r.student)}</td>
+        <td class="strong">${esc(x.r.student)}${x.r.isPremium ? ' <span class="badge-expedited">Expedited</span>' : ''}</td>
         <td>${esc(x.r.type)}</td>
         <td>${fmtDate(x.r.deadline, true)}</td>
         <td>${pill(PILL[x.r.status], LABEL[x.r.status])}</td>

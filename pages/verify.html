@@ -26,21 +26,21 @@
 <script>
   document.getElementById('mark').innerHTML = icon('cap', 22);
   const input = document.getElementById('code'), out = document.getElementById('result');
+  const bad = (t, p) => `<section class="plain-card"><div class="result-bad">${icon('x', 22)} <span>${t}</span></div><p class="lead" style="margin:0">${p}</p></section>`;
   function check(code) {
     code = code.trim().toUpperCase();
     if (!code) { out.innerHTML = ''; return; }
-    const r = DATA.exports.find(x => x.code === code);
-    let html;
-    if (!r) html = `<section class="plain-card"><div class="result-bad">${icon('x', 22)} <span>No record found for this code</span></div><p class="lead" style="margin:0">Check the code for typing mistakes. If the code is correct, the record may not be genuine. Contact the Academic Records Office.</p></section>`;
-    else if (r.revoked) html = `<section class="plain-card"><div class="result-bad">${icon('x', 22)} <span>This record has been withdrawn by the student</span></div><p class="lead" style="margin:0">It should no longer be relied on. Ask the student for a new record.</p></section>`;
-    else if (r.expiresISO < todayISO()) html = `<section class="plain-card"><div class="result-bad">${icon('x', 22)} <span>This record has expired</span></div><p class="lead" style="margin:0">It was valid until ${fmtDate(r.expiresISO)}. Ask the student for a new record.</p></section>`;
-    else html = `<section class="plain-card"><div class="result-ok">${icon('circleCheck', 22)} <span>This record is genuine and current</span></div>
-      <dl><dt>Student</dt><dd>${esc(r.student)}</dd><dt>Programme</dt><dd>${esc(r.programme)}</dd>
-        <dt>Issued</dt><dd>${fmtDate(r.issuedISO)}${r.recipient ? ' for ' + esc(r.recipient) : ''}</dd><dt>Valid until</dt><dd>${fmtDate(r.expiresISO)}</dd>
-        ${r.includeAcademic ? '<dt>Cumulative GPA</dt><dd>' + esc(r.gpa) + ' (official university record)</dd>' : ''}
-        ${r.includeAch ? '<dt>Verified achievements</dt><dd>' + r.verifiedCount + ', each confirmed by university staff</dd>' : ''}</dl>
-      <p class="lead" style="margin:18px 0 0;font-size:13px">These details should match the printed record. If anything differs, the printed copy has been changed.</p></section>`;
-    out.innerHTML = html;
+    fetch('/api/verify/' + encodeURIComponent(code)).then(r => r.json().catch(() => ({}))).then(j => {
+      if (j.state === 'notfound' || !j.state) out.innerHTML = bad('No record found for this code', 'Check the code for typing mistakes. If the code is correct, the record may not be genuine. Contact the Academic Records Office.');
+      else if (j.state === 'revoked') out.innerHTML = bad('This record has been withdrawn by the student', 'It should no longer be relied on. Ask the student for a new record.');
+      else if (j.state === 'expired') out.innerHTML = bad('This record has expired', 'It was valid until ' + fmtDate(j.expiresISO) + '. Ask the student for a new record.');
+      else { const r = j.record; out.innerHTML = `<section class="plain-card"><div class="result-ok">${icon('circleCheck', 22)} <span>This record is genuine and current</span></div>
+        <dl><dt>Student</dt><dd>${esc(r.student)}</dd><dt>Programme</dt><dd>${esc(r.programme)}</dd>
+          <dt>Issued</dt><dd>${fmtDate(r.issuedISO)}${r.recipient ? ' for ' + esc(r.recipient) : ''}</dd><dt>Valid until</dt><dd>${fmtDate(r.expiresISO)}</dd>
+          ${r.includeAcademic ? '<dt>Cumulative GPA</dt><dd>' + esc(r.gpa) + ' (official university record)</dd>' : ''}
+          ${r.includeAch ? '<dt>Verified achievements</dt><dd>' + r.verifiedCount + ', each confirmed by university staff</dd>' : ''}</dl>
+        <p class="lead" style="margin:18px 0 0;font-size:13px">These details should match the printed record. If anything differs, the printed copy has been changed.</p></section>`; }
+    });
   }
   document.getElementById('form').addEventListener('submit', e => { e.preventDefault(); check(input.value); });
   const preset = new URLSearchParams(location.search).get('code');

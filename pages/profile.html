@@ -69,14 +69,16 @@
   document.getElementById('add-skill').innerHTML = icon('plus', 16) + ' Add skill';
 
   function renderAll() {
+    const isPrem = u.premium && u.premium.state === 'premium';
     document.getElementById('head-card').innerHTML = `
       <div class="avatar lg">${u.initials}</div>
       <div>
-        <h2>${u.name} <span class="pill plain">${u.badge}</span></h2>
+        <h2>${u.name} <span class="pill plain">${u.badge}</span>${isPrem ? ' <span class="badge-premium">Premium Services</span>' : ''}</h2>
         <div class="email">${u.email}</div>
         <div class="meta-row">
           <span>${icon('cap', 18)} ${u.programme}</span>
           <span>${icon('user', 18)} Student ID: ${u.studentId}</span>
+          <span><a href="premium.html" style="${isPrem ? 'color:#92400e;font-weight:600' : 'color:var(--muted)'};text-decoration:none">${icon('award', 18)} ${isPrem ? 'Premium Plan Active' : 'Career Services: Free'}</a></span>
         </div>
       </div>
       <button class="icon-btn edit" aria-label="Edit contact details" title="Edit contact details">${icon('pencil', 18)}</button>`;
@@ -99,6 +101,7 @@
       stat('amber', 'clock',       'Pending review',        pending.length,  pendingNote);
 
     const rows = [['Student ID', u.studentId], ['Programme', u.programme], ['Faculty', u.faculty], ['Year of entry', u.entry],
+                  ['Career Services', isPrem ? '<span class="badge-premium">Premium Active</span>' : 'Free Plan · <a href="premium.html">Upgrade</a>'],
                   ['Status', u.status], ['Phone', contact().phone], ['Backup email', contact().backup || 'Not added']];
     document.getElementById('info').innerHTML = rows.map(r => `<div class="info-row"><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
 
@@ -134,7 +137,7 @@
   document.getElementById('req-update').onclick = () => openModal({
     title: 'Request an update',
     body: 'Identity and academic details come from university records, so changes are made by the registry. Tell us what needs correcting and an administrator will follow up.',
-    actions: [{ label: 'Cancel', secondary: true }, { label: 'Send request', onClick: () => { notify(['Admin'], 'bell', 'grey', 'Record update requested', u.name + ' asked for a change to their personal details.'); toast('Update request sent.'); } }]
+    actions: [{ label: 'Cancel', secondary: true }, { label: 'Send request', onClick: () => { notifyAdmin('Record update requested', 'Asked for a change to personal details.').then(() => toast('Update request sent.')); } }]
   });
 
   document.getElementById('add-skill').onclick = () => openModal({
@@ -148,29 +151,9 @@
     } }]
   });
 
-  /* ---- Generate CV: opens a clean printable page ---- */
+  /* ---- Generate CV: opens the interactive CV Maker ---- */
   document.getElementById('cv-btn').onclick = () => {
-    const ver = DATA.achievements.filter(x => x.status === 'verified');
-    const byCat = {};
-    ver.forEach(x => (byCat[x.category] = byCat[x.category] || []).push(x));
-    const sk = skills();
-    // No <html>/<head>/<body> tags here on purpose: a closing body tag inside a script
-    // gets hit by Live Server's auto-reload snippet and breaks the whole page.
-    const html = `<meta charset="utf-8"><title>CV · ${u.name}</title>
-      <style>body{font-family:Arial,Helvetica,sans-serif;color:#111;max-width:760px;margin:40px auto;padding:0 24px;line-height:1.5}
-      h1{margin:0;font-size:28px}h2{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:#C8102E;border-bottom:2px solid #C8102E;padding-bottom:4px;margin-top:28px}
-      .muted{color:#555;font-size:14px}li{margin-bottom:6px}.row{display:flex;justify-content:space-between}</style>
-      <h1>${u.name}</h1><div class="muted">${u.programme} · ${u.faculty} · Africa University<br>${u.email} · ${contact().phone}${contact().backup ? ' · ' + contact().backup : ''}</div>
-      <h2>Academic record</h2><div>Cumulative GPA ${a.gpa} (${a.class}) · ${a.credits} of ${a.totalCredits} credits completed</div>
-      <div class="muted">Official figures from university records. Last updated ${a.lastUpdated}.</div>
-      <h2>Verified achievements</h2>
-      ${Object.keys(byCat).map(c => `<strong>${c}</strong><ul>${byCat[c].map(x => `<li><span class="row"><span>${x.title}${x.tier ? ' (' + x.tier + ')' : ''}</span><span class="muted">${fmtDate(x.date)}</span></span></li>`).join('')}</ul>`).join('')}
-      <h2>Skills</h2><div>${sk.map(x => x.name).join(', ') || 'None listed'}</div>
-      <p class="muted" style="margin-top:32px">Only achievements verified by university staff are listed. Generated ${fmtDate(todayISO())}.</p>`;
-    const w = window.open('', '_blank');
-    if (!w) { toast('Allow pop-ups to open your CV.'); return; }
-    w.document.write(html); w.document.close();
-    setTimeout(() => w.print(), 400);
+    window.location.href = 'cv-maker.html';
   };
 
 
@@ -190,20 +173,26 @@
       if (!acad && !achOn) { toast('Choose at least one thing to include.'); return false; }
       const days = +document.getElementById('ex-days').value, rcpt = document.getElementById('ex-rcpt').value.trim();
       const ver = DATA.achievements.filter(x => x.status === 'verified').sort((x, y) => y.date.localeCompare(x.date));
-      const rec = { code: 'AU-VR-' + randToken(8).toUpperCase(), issuedISO: todayISO(), expiresISO: addDays(todayISO(), days), recipient: rcpt,
+      const rec = { code: 'PENDING', issuedISO: todayISO(), expiresISO: addDays(todayISO(), days), recipient: rcpt,
                     includeAcademic: acad, includeAch: achOn, revoked: false, student: u.name, sid: u.studentId, programme: u.programme, gpa: a.gpa, verifiedCount: ver.length };
       DATA.exports.unshift(rec);
       logAudit('Record exported', u.name + ' verified record', rec.code + (rcpt ? ' for ' + rcpt : ''));
       saveState();
       const url = new URL('verify.html?code=' + rec.code, location.href).href;
       const e = esc;
+      const isPrem = u.premium && u.premium.state === 'premium';
       // no html/head/body tags on purpose (a closing body tag inside a script breaks Live Server's reload snippet)
       const doc = `<meta charset="utf-8"><title>Verified record · ${e(u.name)}</title>
         <style>body{font-family:Arial,Helvetica,sans-serif;color:#111;max-width:780px;margin:40px auto;padding:0 24px;line-height:1.5}
         h1{margin:0 0 4px;font-size:26px}h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#C8102E;border-bottom:2px solid #C8102E;padding-bottom:4px;margin-top:26px}
         .muted{color:#555;font-size:13px}table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;color:#555;font-size:11px;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid #ccc}
-        td{padding:7px 8px;border-bottom:1px solid #eee}.box{border:2px solid #C8102E;border-radius:8px;padding:14px 18px;margin-top:28px}.code{font-size:22px;font-weight:700;letter-spacing:.06em;color:#C8102E}</style>
-        <div class="muted">Africa University · Academic Records</div><h1>Verified student record</h1>
+        td{padding:7px 8px;border-bottom:1px solid #eee}.box{border:2px solid #C8102E;border-radius:8px;padding:14px 18px;margin-top:28px}.code{font-size:22px;font-weight:700;letter-spacing:.06em;color:#C8102E}
+        .badge-prem{display:inline-block;background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;margin-left:8px;vertical-align:middle}
+        </style>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div><div class="muted">Africa University · Academic Records</div><h1>Verified student record${isPrem ? '<span class="badge-prem">PREMIUM VERIFIED</span>' : ''}</h1></div>
+          ${isPrem ? '<div style="text-align:right;font-size:11px;color:#92400e;font-weight:700">AU Career Services<br>Executive Record</div>' : ''}
+        </div>
         <div class="muted">${e(u.name)} · ${e(u.programme)} · ${e(u.faculty)} · Student ID ${e(u.studentId)}${rcpt ? '<br>Prepared for: ' + e(rcpt) : ''}</div>
         ${acad ? `<h2>Academic record</h2><div><b>Cumulative GPA ${e(a.gpa)}</b> (${e(a.class)}) · ${a.credits} of ${a.totalCredits} programme credits completed</div>
           <div class="muted" style="margin:4px 0 10px">Official results from the Academic Records Office, last updated ${e(a.lastUpdated)}.</div>

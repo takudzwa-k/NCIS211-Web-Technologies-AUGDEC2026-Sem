@@ -13,7 +13,7 @@
     <div class="plain-card" style="padding:26px 30px">
       <a class="back-link" href="#" id="back"></a>
       <h1>Demo mailbox</h1>
-      <p class="lead" style="margin:0">Staff who verify achievements by email, such as a lecturer, the Sports Director or the Chaplain, do not need a portal account. In the real system these messages arrive in their inbox. Here they are collected so you can open the links.</p>
+      <p class="lead" style="margin:0">Real email is not connected in this build, so every message the system would send is collected here: confirmation links, sign-in codes, password resets, invitations and approval requests. This page only exists in development mode.</p>
     </div>
     <div id="mails"></div>
   </div>
@@ -22,28 +22,68 @@
 <script src="../js/app.js"></script>
 <script>
   document.getElementById('mark').innerHTML = icon('cap', 22);
-  document.getElementById('back').innerHTML = icon('back', 16) + ' Back to the portal';
-  document.getElementById('back').onclick = e => { e.preventDefault(); history.length > 1 ? history.back() : (window.location.href = ROLE_HOME[CURRENT_ROLE]); };
+  document.getElementById('back').innerHTML = icon('back', 16) + ' Back';
+  document.getElementById('back').onclick = e => { e.preventDefault(); history.length > 1 ? history.back() : (window.location.href = '/index.html'); };
+  const KIND = { verify: 'Confirm email', otp: 'Sign-in code', reset: 'Password reset', invite: 'Invitation', approval: 'Approval request' };
+  const when = ms => { const d = new Date(ms); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' · ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
 
-  const STATUS = { open: ['progress', 'Waiting'], used: ['completed', 'Answered'], handled: ['completed', 'Handled by Records'], replaced: ['draft', 'Replaced'] };
-  function render() {
+  function render(msgs) {
     const box = document.getElementById('mails');
-    if (!DATA.emails.length) { box.innerHTML = '<div class="plain-card empty"><strong>No emails yet</strong>Emails appear when a student sends an achievement to a lecturer or other staff member for verification.</div>'; return; }
-    box.innerHTML = DATA.emails.map(e => {
-      const expired = e.status === 'open' && e.expiresISO < todayISO();
-      const st = expired ? ['declined', 'Expired'] : STATUS[e.status] || ['draft', e.status];
-      return `<div class="mail-item">
+    if (!msgs.length) { box.innerHTML = '<div class="plain-card empty"><strong>No emails yet</strong>Messages appear here as the system sends them.</div>'; return; }
+    box.innerHTML = msgs.map(m => {
+      const codeMatch = /code is (\d{6})/i.exec(m.body) || /\b(\d{6})\b/.exec(m.body);
+      const code = codeMatch ? codeMatch[1] : null;
+      return `
+      <div class="mail-item">
         <div class="round-icon grey">${icon('mail', 22)}</div>
-        <div class="body"><strong>${esc(e.subject)}</strong>
-          <div class="to">To: ${esc(e.to)} · Sent ${fmtDate(e.sentISO)} · Link expires ${fmtDate(e.expiresISO)}</div>
-          <p>${esc(e.student)} says they achieved “${esc(e.title)}” and named you to confirm it. Use the secure link to answer in one step. No login needed.</p>
-          <div class="btn-row" style="margin-top:12px">${e.status === 'open' && !expired ? `<a class="btn small" href="email-approval.html?t=${e.token}">Open the link</a>` : ''}
-            ${e.result ? '<span class="tier">' + esc(e.result) + '</span>' : ''}</div></div>
-        ${pill(st[0], st[1])}
+        <div class="body"><strong>${esc(m.subject)}</strong>
+          <div class="to">To: ${esc(m.to_email)} · ${when(m.at)}</div>
+          <p>${esc(m.body)}</p>
+          ${code ? `
+          <div style="display:inline-flex;align-items:center;gap:14px;background:#fef2f2;border:2px solid #fecdd3;border-radius:10px;padding:8px 16px;margin:10px 0">
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#991b1b">Verification Code</div>
+              <div style="font-family:monospace;font-size:26px;font-weight:800;letter-spacing:.2em;color:#c8102e;line-height:1.2">${code}</div>
+            </div>
+            <button class="btn-copy" type="button" data-copy="${code}" title="Copy code" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #f87171;color:#b91c1c;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s">
+              ${icon('copy', 16)} <span>Copy</span>
+            </button>
+          </div>` : ''}
+          ${m.link ? `<div class="btn-row" style="margin-top:12px"><a class="btn small" href="${esc(m.link)}">Open the link</a></div>` : ''}</div>
+        <div style="text-align:right"><span class="pill plain">${esc(KIND[m.kind] || 'Message')}</span>${m.status ? '<div style="font-size:11px;margin-top:6px;color:' + (/FAILED/.test(m.status) ? 'var(--red)' : 'var(--muted)') + '">' + esc(m.status === 'sent' ? 'Delivered to the mail server' : m.status) + '</div>' : ''}</div>
       </div>`;
     }).join('');
+
+    box.querySelectorAll('[data-copy]').forEach(btn => {
+      btn.onclick = () => {
+        const c = btn.dataset.copy;
+        const fallback = () => {
+          const ta = document.createElement('textarea');
+          ta.value = c; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        };
+        const done = () => {
+          btn.innerHTML = icon('check', 16) + ' <span>Copied!</span>';
+          btn.style.borderColor = '#10b981';
+          btn.style.color = '#065f46';
+          btn.style.background = '#ecfdf5';
+          toast('Code ' + c + ' copied to clipboard!');
+          setTimeout(() => {
+            btn.innerHTML = icon('copy', 16) + ' <span>Copy</span>';
+            btn.style.borderColor = '#f87171';
+            btn.style.color = '#b91c1c';
+            btn.style.background = '#fff';
+          }, 2000);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(c).then(done).catch(() => { fallback(); done(); });
+        } else {
+          fallback(); done();
+        }
+      };
+    });
   }
-  render();
+  function load() { fetch('/api/dev/outbox').then(r => r.ok ? r.json() : { messages: [] }).then(j => render(j.messages)); }
+  load(); setInterval(load, 4000);
 </script>
 </body>
 </html>

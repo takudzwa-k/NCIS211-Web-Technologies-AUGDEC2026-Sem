@@ -26,7 +26,7 @@
           <div class="toolbar">
             <div class="input-icon" id="search-wrap"><input id="q" type="text" placeholder="Search users..."></div>
             <select class="select" id="f-role">
-              <option value="">All roles</option><option>Student</option><option>Alumni</option><option>Lecturer</option><option>Admin</option>
+              <option value="">All roles</option><option>Student</option><option>Alumni</option><option>Lecturer</option><option>Supervisor</option><option>Admin</option>
             </select>
           </div>
           <div class="table-wrap">
@@ -52,21 +52,20 @@
 <script src="../js/data.js"></script>
 <script src="../js/app.js"></script>
 <script>
-  const U = DATA.users;
+  let U = DATA.users;
   document.getElementById('create').innerHTML = icon('plus', 18) + ' Create user';
   document.getElementById('search-wrap').insertAdjacentHTML('afterbegin', icon('search', 18));
   document.getElementById('role-ic').innerHTML = icon('shield', 30).replace('class="ic"', 'class="ic big"');
-  const ROLES = ['Student', 'Alumni', 'Lecturer', 'Admin'];
+  const ROLES = ['Student', 'Alumni', 'Lecturer', 'Supervisor', 'Admin'];
   const roleOptions = sel => ROLES.map(r => `<option ${r === sel ? 'selected' : ''}>${r}</option>`).join('');
 
   function statusPill(s) {
-    if (s === 'verified') return pill('verified', 'Verified');
-    if (s === 'invited')  return pill('pending', 'Invited');
-    return pill('inactive', 'Inactive');
+    if (s === 'verified') return pill('verified', 'Active');
+    if (s === 'invited')  return pill('pending', 'Waiting for sign-up');
+    return pill('inactive', 'Deactivated');
   }
 
   function render() {
-    saveState();
     const q = document.getElementById('q').value.toLowerCase().trim();
     const r = document.getElementById('f-role').value;
     const list = U.map((u, i) => ({ u, i })).filter(x =>
@@ -74,46 +73,62 @@
     document.getElementById('empty').style.display = list.length ? 'none' : 'block';
     document.getElementById('rows').innerHTML = list.map(x => `
       <tr>
-        <td><div class="user-cell"><strong>${x.u.name}</strong><span>${x.u.email}</span></div></td>
+        <td><div class="user-cell"><strong>${esc(x.u.name)}</strong><span>${esc(x.u.email)}</span></div></td>
         <td><span class="tier">${x.u.role}</span></td>
         <td>${statusPill(x.u.status)}</td>
-        <td>${x.u.last}</td>
-        <td><button class="icon-btn" data-edit="${x.i}" aria-label="Edit ${x.u.name}">${icon('more', 20)}</button></td>
+        <td>${esc(x.u.last)}</td>
+        <td>${x.u._id === DATA.user.id ? '' : `<button class="icon-btn" data-edit="${x.i}" aria-label="Edit ${esc(x.u.name)}">${icon('more', 20)}</button>`}</td>
       </tr>`).join('');
     document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => edit(+b.dataset.edit));
+  }
+
+  // everything here is done by the server, which checks you are an administrator
+  function refresh(msg) {
+    apiAsync('GET', '/api/bootstrap').then(r => { if (r.json && r.json.data) { U = DATA.users = r.json.data.users; render(); } if (msg) toast(msg); });
+  }
+  function change(u, body, msg) {
+    return apiAsync('PATCH', '/api/admin/users/' + encodeURIComponent(u._id), body).then(r => {
+      if (r.status !== 200) { toast((r.json && r.json.error) || 'That could not be changed.'); return; }
+      refresh(msg);
+    });
   }
 
   function edit(i) {
     const u = U[i];
     openModal({
       title: 'Edit user',
-      body: `<div class="form-field"><label>Name</label><div style="color:var(--text);font-weight:500">${u.name}</div><div style="font-size:12px;color:var(--muted)">${u.email}</div></div>
-             <div class="form-field" style="margin-bottom:0"><label for="role">Role</label><select id="role">${roleOptions(u.role)}</select></div>`,
+      body: `<div class="form-field"><label>Name</label><div style="color:var(--text);font-weight:500">${esc(u.name)}</div><div style="font-size:12px;color:var(--muted)">${esc(u.email)}</div></div>
+             <div class="form-field" style="margin-bottom:0"><label for="role">Role</label><select id="role">${roleOptions(u.role)}</select>
+               <div style="font-size:12px;color:var(--muted);margin-top:6px">Changing a role signs the person out of every device.</div></div>`,
       actions: [
         { label: 'Cancel', secondary: true },
         { label: u.status === 'inactive' ? 'Reactivate' : 'Deactivate', secondary: true, danger: u.status !== 'inactive', onClick: () => {
-            u.status = u.status === 'inactive' ? 'verified' : 'inactive'; logAudit('Edited', u.name, u.status === 'inactive' ? 'Deactivated' : 'Reactivated'); render(); toast(u.name + (u.status === 'inactive' ? ' deactivated.' : ' reactivated.')); } },
-        { label: 'Save changes', onClick: () => { u.role = document.getElementById('role').value; logAudit('Edited', u.name, 'Role set to ' + u.role); render(); toast('Role updated for ' + u.name + '.'); } }
+            change(u, { status: u.status === 'inactive' ? 'active' : 'disabled' }, u.name + (u.status === 'inactive' ? ' reactivated.' : ' deactivated and signed out.')); } },
+        { label: 'Save changes', onClick: () => { change(u, { role: document.getElementById('role').value }, 'Role updated for ' + u.name + '.'); } }
       ]
     });
   }
 
   document.getElementById('create').onclick = () => openModal({
-    title: 'Create user',
-    body: `<div class="form-field"><label for="n">Full name</label><input id="n" type="text"></div>
+    title: 'Invite a user',
+    body: `<p style="margin-bottom:14px;font-size:13px;color:var(--muted)">They get an email with a link to choose their own password. Staff use a name@africau.edu address.</p>
+           <div class="form-field"><label for="n">Full name</label><input id="n" type="text"></div>
            <div class="form-field"><label for="e">Email address</label><input id="e" type="email"></div>
-           <div class="form-field" style="margin-bottom:0"><label for="r">Role</label><select id="r">${roleOptions('Student')}</select></div>`,
+           <div class="form-field" style="margin-bottom:0"><label for="r">Role</label><select id="r">${roleOptions('Lecturer')}</select></div>`,
     actions: [
       { label: 'Cancel', secondary: true },
-      { label: 'Create user', onClick: () => {
-          const name = document.getElementById('n').value.trim(), email = document.getElementById('e').value.trim();
+      { label: 'Send invitation', onClick: o => {
+          const name = document.getElementById('n').value.trim(), email = document.getElementById('e').value.trim(), role = document.getElementById('r').value;
           if (!name || !/^\S+@\S+\.\S+$/.test(email)) { toast('Enter a name and a valid email address.'); return false; }
-          U.push({ name, email, role: document.getElementById('r').value, status: 'invited', last: 'Never' });
-          logAudit('Created', name, 'Invited as ' + document.getElementById('r').value); render(); toast('Invitation sent to ' + email + '.'); } }
+          apiAsync('POST', '/api/admin/users', { name, email, role }).then(r => {
+            if (r.status !== 200) { toast((r.json && r.json.error) || 'Could not send the invitation.'); return; }
+            o.close(); refresh('Invitation sent to ' + email + '.');
+          });
+          return false; } }
     ]
   });
 
-  document.getElementById('roles').innerHTML = ['Student', 'Lecturer', 'Admin'].map(r => `
+  document.getElementById('roles').innerHTML = ['Student', 'Lecturer', 'Supervisor', 'Admin'].map(r => `
     <button class="role-row" data-role="${r}"><strong>${r}</strong><span>${DATA.rolePermissions[r].summary}</span>${icon('right', 18)}</button>`).join('');
   document.querySelectorAll('[data-role]').forEach(b => b.onclick = () => {
     const rp = DATA.rolePermissions[b.dataset.role];

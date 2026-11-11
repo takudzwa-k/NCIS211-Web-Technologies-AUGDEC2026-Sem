@@ -103,7 +103,7 @@
         const why = document.getElementById('why').value.trim();
         if (!why) { toast('Please give a reason.'); return false; }
         x.history.push({ when: todayISO(), text: (kind === 'delete' ? 'Deletion' : 'Change') + ' requested' });
-        notify(['Admin'], 'clock', 'amber', (kind === 'delete' ? 'Deletion' : 'Change') + ' requested', DATA.user.name + ': ' + x.title + '. ' + why);
+        notifyAdmin((kind === 'delete' ? 'Deletion' : 'Change') + ' requested', DATA.user.name + ': ' + x.title + '. ' + why);
         logAudit(kind === 'delete' ? 'Deletion requested' : 'Change requested', x.title, why);
         saveState(); toast('Request sent to staff for approval.');
       } }]

@@ -1,108 +1,159 @@
-# AU Student Achievement & Recommendation Profile (prototype)
+# AU Student Achievement & Recommendation Profile
 
-A clickable prototype built with plain HTML, CSS and JavaScript. There is no backend: everything you do is kept in the browser tab, so the roles connect to each other (a student submits something, the admin sees it, the student is notified).
+A working portal with a real server and database. Students and alumni record achievements, staff verify them, lecturers write letters, and the Records Office imports official grades. Sign-in, permissions, files and the audit trail are enforced on the server.
+
+No packages to install. It uses only what comes with Node.
 
 ## Run it
 
-1. Open this folder in VS Code.
-2. Install the **Live Server** extension.
-3. Right-click `index.html` and choose **Open with Live Server**.
+1. You need **Node.js 22.5 or newer** (uses native `node:sqlite`). Check with `node --version`. If it is older, install or switch with `nvm use 22` or `nvm use 25`.
+2. Choose your run mode:
 
-Needs an internet connection only for the font (Plus Jakarta Sans). Without it the page falls back to a system font.
+### Option A: Demo Mode (Recommended for testing & evaluation)
+Pre-seeded with demo accounts, in-browser clickable quick-fill chips, and demo mailbox:
+```bash
+npm run demo
+# or: node server/server.js --demo
+```
+Open **http://localhost:3001** in your browser.
+
+### Option B: Live Mode (Production-ready)
+Real SMTP email delivery, production database (`data/`), and strict security enforcement:
+```bash
+npm run live
+# or: node server/server.js --live
+```
+Open **http://localhost:3000** in your browser.
+
+### Option C: Shareable Public Links (For Lecturer Review & Live Presentation)
+To create instant public HTTPS links that anyone (lecturer, reviewer, or your mobile phone) can open over the internet:
+```bash
+npm run share
+# Or share individual modes:
+# npm run share:demo
+# npm run share:live
+```
+This automatically boots the server and generates secure public HTTPS links (via `localhost.run` / `pinggy`) without requiring any account or third-party installations.
+> **Do not open the pages with VS Code Live Server.** It only serves files, so there would be no server or database to sign in to.
 
 ## Sign in
 
-Pick a role in "View prototype as". The email and password are filled in. Click **Sign in**, then **Verify and sign in** (the two-step code `123456` is already filled in).
+The sign-in page lists demo accounts in development mode. Click one to fill in the email and the shared demo password (`Demo-Passw0rd!`), then press **Sign in**.
 
-| Role | Name | Starts on |
+Every sign-in sends a one-time code by email. Real email is not connected yet, so open the **Demo mailbox** (link on the sign-in page and in the profile menu) and type the 6-digit code from the newest message.
+
+| Role | Name | Email | Plan / Note |
+|---|---|---|---|
+| Student (Premium) | Tendai Moyo | t.moyo@students.africau.edu | Premium Active (Expedited letters, tailored focus, executive CV) |
+| Student (Free) | Tafadzwa Ncube | t.ncube@students.africau.edu | Standard Free Plan |
+| Alumni | Rudo Chikwanha | r.chikwanha@alumni.africau.edu | Graduated Class of 2024 |
+| Lecturer | Dr. N. Dube | n.dube@africau.edu | Faculty of Science & Technology |
+| Supervisor | Mrs. R. Phiri | r.phiri@attachment.africau.edu | Econet Wireless / Industrial Partner |
+| Admin | Chipo Nyathi | c.nyathi@africau.edu | Registry Administrator |
+
+**Create account** on the sign-in page makes a real student or alumni account. It needs a university email address (name@africau.edu) and a six-digit student ID, and the account only works after the emailed link is opened. Lecturers and staff are invited by an administrator (Users & Permissions).
+
+## What the server protects
+
+- **Accounts:** passwords are stored as salted scrypt hashes. Weak and common passwords are refused. Five wrong passwords lock the account for 15 minutes.
+- **Two-step sign-in:** an emailed code, always on for staff. Wrong codes burn the challenge after five tries.
+- **Sessions:** a random cookie that JavaScript cannot read, same-site only, ended after one hour of inactivity or 12 hours in all. Only a hash of it is stored. Changing a password signs out every other device.
+- **Forged requests:** every change needs a secret token tied to the session, and requests from other websites are refused.
+- **Who can do what:** the server decides. A student's page can only ever receive that student's records. Lecturers receive only what a student has chosen to share, for the time they chose. Verifying, rejecting, importing grades and managing users need an administrator, whatever the browser sends.
+- **Honest records:** statuses, tiers, who verified something, notifications and the audit log are written by the server. A page cannot invent them.
+- **Files:** only real PDF, JPG or PNG files up to 5 MB are accepted, checked by content and not by name. They are stored outside the web folder under random names. Only the owner and administrators can open them.
+- **Audit trail:** the database refuses to change or delete it.
+- **Browser protection:** strict content security policy (only scripts the server marked may run), no framing, no content-type guessing.
+- **No account guessing:** sign-up and password-reset replies are the same whether or not an email exists.
+
+## A 10-minute tour
+
+1. **Create an account** from the sign-in page. Open the confirmation link from the Demo mailbox, then sign in.
+2. **Student:** sign in as Tendai. Add an achievement and send it to the *Sports Director*. The email appears in the Demo mailbox.
+3. **Staff without an account:** open that link in a private window. No login. Confirm it. Back as Tendai, it is Verified and says who confirmed it.
+4. **Admin:** sign in as Chipo. Open the queue, **Flag for explanation** on another item. As Tendai, explain it. As Chipo, verify it. Open the **Audit Log**.
+5. **Letters:** as Tendai, *New request* to Dr. Dube and tick two achievements. As Dr. Dube, accept it, open the profile (only those two are visible), edit the draft and approve it.
+6. **Privacy:** as Tendai, **Sharing & Privacy**: turn off Academic Record, create a share link, revoke Dr. Dube. As Dr. Dube, Tendai disappears at once.
+7. **Documents:** upload a PDF and an image, preview and download them.
+8. **Proof for other institutions:** **Export verified record**, then check its code on the verify page without signing in. Withdraw it and check again.
+9. **Grades:** as Chipo, **Academic Data Import**: download the sample CSV, import it, and watch the student's GPA change (it is worked out from the grades).
+10. **Account & security** (profile menu): change a password, see devices and sign-in history.
+
+## Send real email
+
+By default messages go to the Demo mailbox. To send them to real inboxes:
+
+1. Copy `.env.example` to a new file called `.env` in the project folder.
+2. Fill in the mail lines. For Gmail: turn on 2-Step Verification, create an **App password** at myaccount.google.com/apppasswords, then put your Gmail address and that 16-letter password in `AU_SMTP_USER` and `AU_SMTP_PASS`. The other Gmail lines are already filled in.
+3. Test it: `node server/test-mail.js your.address@example.com` (check the spam folder the first time).
+4. Restart the server. Confirmation links, sign-in codes, password resets, invitations and approval requests now arrive in real inboxes, and the demo mailbox shows whether each one was delivered.
+
+Any mail account works (the university's mail server, Brevo, SendGrid and so on). Use the host, port and login they give you: port 465 with `AU_SMTP_SECURE=ssl`, or port 587 with `AU_SMTP_SECURE=starttls`. Set `AU_BASE_URL` to the address people use to reach the portal, because links inside emails are built from it. A link to `localhost` only works on your own computer.
+
+## Settings (environment variables)
+
+| Variable | Meaning | Default |
 |---|---|---|
-| Student | Tendai Moyo | My Profile |
-| Alumni | Rudo Chikwanha | My Profile |
-| Lecturer | Dr. N. Dube | Find Students |
-| Admin | Chipo Nyathi | Verification Queue |
+| `PORT` | Port to listen on | 3000 |
+| `HOST` | Address to listen on. Anything other than `127.0.0.1` turns the development tools off | 127.0.0.1 |
+| `AU_DEV` | `0` turns off the demo mailbox and demo-account list. Set `1` to force them on | on only for 127.0.0.1 |
+| `AU_NO_SEED` | `1` starts with an empty database (no demo accounts) | off |
+| `AU_DATA_DIR` | Where the database and uploaded files live | `data/` |
+| `AU_SECURE` | `1` marks the cookie Secure (use behind HTTPS) | off |
+| `AU_SMTP_HOST`, `AU_SMTP_PORT`, `AU_SMTP_SECURE`, `AU_SMTP_USER`, `AU_SMTP_PASS`, `AU_SMTP_FROM` | The mail account used to send real email (see `.env.example`) | not set: messages stay in the demo mailbox |
+| `AU_BASE_URL` | Address used for links inside emails | http://localhost:PORT |
+| `AU_MAIL_LOG` | `1` prints outgoing email to the console when dev tools are off | off |
 
-Switch roles any time from the profile menu (top right). The same menu has **Demo mailbox** and **Reset demo data**.
+## Before real use
 
-## A 10-minute demo, step by step
+This is a working system, but these steps are still yours to do:
 
-**1. Student logs an achievement (Student)**
-1. Achievements, then **Add Achievement**. Click **Submit** with nothing filled in to show the highlighted missing fields.
-2. Fill in: title "Inter-varsity Football Captain", category Sports, a date, level Local, a description, and send to **Sports Director**. Submit.
-3. It appears as **Pending**. Click it to show the history.
+1. **Real email.** See "Send real email" above. For real use, send from an address on the university's own domain (ask ICT for a mail account or relay) so messages are not marked as spam, and set `AU_DEV=0` so the demo mailbox is off.
+2. **HTTPS.** Put it behind HTTPS (a reverse proxy such as Nginx or Caddy) and set `AU_SECURE=1`. Never expose it over plain HTTP.
+3. **No demo accounts.** Start with `AU_NO_SEED=1`, then create the first administrator: `node server/create-admin.js you@africau.edu "Your Name"`. It prints a one-time link for choosing a password.
+4. **Back up** the `data/` folder (database and files) regularly.
+5. **Link grades to students.** Grades attach to students by student ID. Make sure the Records Office export uses the same IDs that students sign up with.
+6. **Decisions from the workshop** that are still open: whether finished letters can be downloaded, who may receive them, and whether disciplinary records are ever stored (they are not here).
+7. For many users, move from SQLite to a server database and add monitoring. The code that talks to the database is in `server/store.js`.
 
-**2. Staff without accounts confirm it by email (no login)**
-1. Profile menu, **Demo mailbox**. The email to the Sports Director is there.
-2. **Open the link**. This is a standalone page with no portal and no login. Confirm it as Major.
-3. Open the same link again to show it only works once.
-4. Back as the student: the achievement is **Verified**, and its details say who confirmed it and that it was by email link.
+## Attachment Supervisor Portal
 
-**3. Admin reviews and flags (Admin)**
-1. As the student, add another achievement and send it to the **Academic Records Office**.
-2. Switch to Admin. Open it in the Verification Queue. Click **Flag for explanation** with a note.
-3. Switch to Student: the item shows **Needs explanation**. Open it and send an explanation.
-4. Back as Admin: the item shows **Explained** with the student's reply. Verify it.
+Industrial attachment supervisors (e.g. `Mrs. R. Phiri`) have dedicated access to:
+- View attached students who have granted supervisory access.
+- Review and generate **Industrial Attachment Evaluation & Assessment Letters** formatted with AU official letterhead.
+- Add and directly verify workplace achievements, tasks, and competencies.
+- Save and edit evaluation drafts before final submission.
 
-**4. Student asks for a letter (Student, then Lecturer)**
-1. Letter Requests, **New request**: type Recommendation, lecturer Dr. N. Dube, purpose, deadline, key points, and tick only some achievements.
-2. Switch to Lecturer, Letter Requests: **Accept**, then **Start letter**.
-3. The lecturer sees only the ticked achievements. A draft is built from verified information. Edit it, **Save draft** (see Drafts), then **Approve and complete**.
-4. Switch to Student: the request is **Completed**, and Sharing & Privacy shows who viewed the profile.
+## Premium Career Services
 
-**5. Student controls privacy (Student)**
-Sharing & Privacy: switch off Academic Record, create and cancel a **share link**, **Grant access** with a purpose and end date, **Revoke** a lecturer. In Find Students the lecturer loses the student straight away.
-
-**6. Documents (Student)**
-Documents, **Upload document**: drop in a PDF and an image, choose what it is for, upload. Preview, download and remove them.
-
-**7. Proof for other institutions (Student)**
-1. My Profile, **Export verified record**. A printable record opens with a verification code.
-2. Open the **verify** page (Sharing & Privacy, "Check online"). The code is shown as genuine.
-3. **Withdraw** the record and check again: it now says withdrawn.
-
-**8. Records Office imports grades (Admin)**
-Academic Data Import: **Download a sample CSV**, then **Import .CSV**, map the columns, confirm. Then show the **Audit Log** (every step above is in it) and **Export log**.
-
-## Where each workshop requirement is covered
-
-| Requirement | Where |
-|---|---|
-| One central profile, verified achievements | My Profile, Achievements |
-| Evidence upload, Pending / Verified / Rejected with reason | Add Achievement, Documents, Verification Queue |
-| Verified by the right person, recorded | "Send to" choice, email link, achievement details |
-| Staff without accounts can verify | Demo mailbox, email approval page |
-| Flag suspicious evidence, student explains | Verification Queue, Achievements |
-| Edit pending items; verified items need approval | Achievement details (Request change / deletion) |
-| Duplicate warning, missing information blocked | Add Achievement |
-| Pre-university and past achievements, tiers | Add Achievement, Verification Queue |
-| Letter requests with purpose and key points | New request |
-| Lecturer sees only what the student chose | Student profile (lecturer view) |
-| Draft from verified data, lecturer stays the author | Letter draft, Drafts |
-| Student controls access, time-limited, notified | Sharing & Privacy |
-| Official grades read-only, imported by the Records Office | Academic Record, Academic Data Import |
-| Two-step sign-in, password reset, login history | Login, Sharing & Privacy |
-| Skills, contact details, CV | My Profile |
-| Verified record with a code anyone can check | Export verified record, verify page |
-| Audit trail | Audit Log |
-
-## Not built
-
-- The attachment supervisor module (attendance, tasks, assessment). It also conflicts with the decision to leave attendance out.
-- Trusted helpers, separate logins for each kind of verifier, messaging and complaints.
-- Real security, storage and email. A real build needs a backend and database (encryption, real sign-in, file storage, a mail service).
-- Downloading finished letters, and who may receive them, are open questions in the workshop findings.
-
-## Good to know
-
-- Everything lives in the browser tab. Closing the tab or using **Reset demo data** clears it.
-- Print and CV windows are pop-ups. Allow pop-ups if nothing opens.
-- **For anyone editing the code:** never write a closing body tag as text inside a script. Live Server inserts its reload snippet at the first one it finds and breaks the page.
+Students and alumni can upgrade to **Premium Career Services** (`pages/premium.html`):
+- **Expedited Processing:** Letter requests appear flagged with `Expedited` at the top of lecturer and supervisor review queues.
+- **Industry Tailoring:** Students can specify career tracks (Engineering, Management, NGO / Development, Research / Academia, Technology, Healthcare) to produce tailored recommendation drafts.
+- **Executive PDF Letterhead:** Printable recommendation letters include AU executive letterhead, authenticity codes, and career services validation.
+- **Verified CV Export:** Enhanced CVs with `PREMIUM VERIFIED` branding and online verification links.
+- **Semester Payment Tracking:** Students submit payment receipts/references, and administrators verify and approve requests from the admin portal.
 
 ## Files
 
 ```
-index.html          sign in, two-step code, password reset
-css/style.css       the whole theme
-js/data.js          sample data and session saving
-js/app.js           shared code: menus, popups, uploads, notifications
-pages/              one file per screen (student, lecturer, admin and standalone pages)
+server/server.js         web server, sign-in, sessions, files, admin actions, mode banner
+server/env.js            environment configuration and dual-mode flag resolver (--demo / --live)
+server/mode.js           helper script to switch default mode in .env
+server/store.js          what each person may see and change (students, lecturers, supervisors, admins)
+server/auth.js           passwords, sessions, codes, rate limits
+server/db.js             database tables and schema migrations (users, achievements, premium, audit)
+server/mail.js, smtp.js  outgoing email (saved, and sent if a mail account is set up)
+server/test-mail.js      checks your email settings
+.env.demo, .env.live     environment templates for demo and live modes
+server/seed.js           demo accounts (including Attachment Supervisor) and sample data
+server/create-admin.js   first administrator for a fresh install
+index.html, js/auth-page.js   sign in, demo chip picker, create account, reset password
+pages/                   one file per screen (including cv-maker.html, opportunities.html, premium.html, find-students.html, reports.html, drafts.html)
+js/data.js, js/app.js    load data from the server, save changes, shared navigation and styling
+js/programmes.js         every programme students can choose (edit here to add or rename one)
+css/style.css            the theme
+data/                    live mode database and uploaded files
+data-demo/               demo mode database and uploaded files
 ```
+
+For anyone editing the code: never write a closing body tag as text inside a script.

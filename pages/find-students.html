@@ -15,8 +15,8 @@
     <main class="content">
       <div class="page-head">
         <div>
-          <h1>Find Students</h1>
-          <p>Search profiles shared with you or linked to a letter request.</p>
+          <h1 id="page-title">Find Students</h1>
+          <p id="page-desc">Search profiles shared with you or linked to a letter request.</p>
         </div>
       </div>
 
@@ -25,7 +25,7 @@
           <input id="q" type="text" placeholder="Search by name, student ID or programme" autocomplete="off">
           <button class="btn" type="submit">Search</button>
         </form>
-        <p class="search-hint">Results are limited to students who have granted you access.</p>
+        <p class="search-hint" id="search-hint">Results are limited to students who have granted you access.</p>
       </section>
 
       <div class="result-count" id="count"></div>
@@ -37,16 +37,16 @@
 <script src="../js/data.js"></script>
 <script src="../js/app.js"></script>
 <script>
+  if (CURRENT_ROLE === 'Supervisor') {
+    document.title = 'Attached Students · AU Student Achievement & Recommendation Profile';
+    document.getElementById('page-title').textContent = 'Attached Students';
+    document.getElementById('page-desc').textContent = 'Review student profiles under your industrial attachment supervision.';
+    document.getElementById('search-hint').textContent = 'Results show students who have shared their profile with you for industrial attachment.';
+  }
   document.querySelector('.big-search').insertAdjacentHTML('afterbegin', icon('search', 20));
 
-  // what each student has let this lecturer see right now
-  function accessFor(s) {
-    if (!s.live) return { sections: s.access, until: s.until };
-    const a = DATA.access.find(x => x.name === lecturerName());
-    if (!a) return null;                                   // student revoked access
-    const secs = a.sections.filter(x => x === 'Selected achievements' || DATA.visibility[x]);
-    return { sections: secs.length ? secs : ['Nothing visible'], until: a.expiresISO };
-  }
+  // the server already filtered this list to what each student lets you see right now
+  function accessFor(s) { return { sections: s.access, until: s.until }; }
 
   function render() {
     const q = document.getElementById('q').value.toLowerCase().trim();
@@ -67,11 +67,11 @@
       return `<div class="card student-card">
         <div class="avatar">${s.initials}</div>
         <div class="who">
-          <h3>${esc(s.name)}</h3>
+          <h3>${esc(s.name)}${s.isPremium ? ' <span class="badge-premium">Premium</span>' : ''}</h3>
           <div class="prog">${esc(s.programme)} · ${esc(s.level)}</div>
           <div class="sid">${s.id}${ac.until ? ' · Access until ' + fmtDate(ac.until) : ''}</div>
         </div>
-        <div class="chips">${ac.sections.map(a => '<span class="chip">' + esc(a) + '</span>').join('')}</div>
+        <div class="chips">${ac.sections.map(a => '<span class="chip">' + esc(a) + '</span>').join('') || '<span class="chip">Nothing visible</span>'}</div>
         <a class="btn secondary" href="student-profile.html?id=${encodeURIComponent(s.id)}">Open profile ${icon('right', 16)}</a>
       </div>`;
     }).join('');
