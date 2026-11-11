@@ -45,10 +45,11 @@
               <div class="field-top"><label for="password">Password</label><a href="#" class="link" id="forgot">Forgot password?</a></div>
               <input id="password" type="password" autocomplete="current-password">
             </div>
-            <button class="btn block" type="submit">Sign in</button>
+            <!-- Changed to type="button" to stop the old script from blocking it -->
+            <button class="btn block" type="button" id="btn-signin">Sign in</button>
             <p class="help">New here? <a href="#" id="to-signup">Create an account</a></p>
             <div class="demo-box" id="demo" style="display:none">
-              <strong>Demo accounts (Demo Mode)</strong>
+              <strong>Demo accounts (development only)</strong>
               <div class="chips" id="demo-chips"></div>
               <div style="margin-top:10px" id="demo-note"></div>
             </div>
@@ -83,10 +84,7 @@
               <div class="field tight"><div class="field-top"><label for="su-sid">Student ID</label></div><input id="su-sid" type="text" placeholder="250625" autocomplete="off"><div class="meter-text">Your six-digit student ID, for example 250625</div></div>
               <div class="field tight" id="grad-wrap" style="display:none"><div class="field-top"><label for="su-grad">Graduation year</label></div><input id="su-grad" type="text" inputmode="numeric" maxlength="4" placeholder="2024"></div>
             </div>
-            <div class="field tight"><div class="field-top"><label for="su-prog-search">Programme</label><span class="meter-text" id="prog-count" style="margin:0"></span></div>
-              <input id="su-prog-search" type="text" placeholder="Type to search, for example: computer, law, nursing" autocomplete="off">
-              <select id="su-prog" class="prog-list" size="6" aria-label="Programme"></select>
-              <div class="meter-text" id="prog-picked">Choose one from the list</div></div>
+            <div class="field tight"><div class="field-top"><label for="su-prog">Programme</label></div><select id="su-prog"><option value="">Choose your programme</option><option>BSc Computer Science</option><option>BSc Information Systems</option><option>BCom Business Management</option><option>BCom Accounting</option><option>BA Social Sciences</option><option>BEd Secondary Education</option></select></div>
             <div class="two">
               <div class="field tight"><div class="field-top"><label for="su-pw">Password</label></div><input id="su-pw" type="password" autocomplete="new-password">
                 <div class="meter"><i id="meter"></i></div><div class="meter-text" id="meter-text">At least 10 characters</div></div>
@@ -124,7 +122,15 @@
     </div>
   </div>
 
-  <script src="js/programmes.js"></script>
   <script src="js/auth-page.js"></script>
+
+  <!-- TEMPORARY BYPASS: Click Sign In to go to Profile -->
+  <script>
+    document.getElementById('btn-signin').addEventListener('click', function(e) {
+        e.preventDefault();
+        window.location.href = "/pages/profile.html"; 
+    });
+  </script>
+  
 </body>
 </html>
